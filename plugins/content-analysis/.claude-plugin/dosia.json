@@ -1,0 +1,8 @@
+{
+  "global": false,
+  "networkDomains": [
+    "ci.xiaohongshu.com",
+    "sns-img-*.xhscdn.com",
+    "*.xiaohongshu.com"
+  ]
+}

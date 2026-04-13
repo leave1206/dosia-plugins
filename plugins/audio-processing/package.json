@@ -1,0 +1,11 @@
+{
+  "name": "@dosia/plugin-audio-transcribe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audio transcription MCP server (COS + Volcano Engine Big Model ASR)",
+  "main": "server.cjs",
+  "dependencies": {
+    "axios": "^1.7.0",
+    "cos-nodejs-sdk-v5": "^2.14.0"
+  }
+}

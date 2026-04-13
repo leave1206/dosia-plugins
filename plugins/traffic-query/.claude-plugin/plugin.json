@@ -1,0 +1,6 @@
+{
+  "name": "traffic-query",
+  "version": "1.0.0",
+  "description": "流量项目监控 — 聚光投放数据查询。支持实时报表、离线日报、笔记消耗等 9 种报表类型只读查询。",
+  "keywords": ["ad-ops", "traffic", "report", "monitor"]
+}

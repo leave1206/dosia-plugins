@@ -1,0 +1,10 @@
+{
+  "name": "@dosia/plugin-traffic-query",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Traffic query MCP server — read-only MongoDB queries for ad monitoring reports",
+  "main": "query-server.cjs",
+  "dependencies": {
+    "mongodb": "^6.21.0"
+  }
+}

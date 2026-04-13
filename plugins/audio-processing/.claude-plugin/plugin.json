@@ -1,0 +1,6 @@
+{
+  "name": "audio-processing",
+  "version": "1.0.0",
+  "description": "将本地音频文件转写为带时间戳的文本。通过腾讯云 COS 上传 + 火山引擎 Big Model ASR 异步转写，支持 mp3/m4a/wav/flac/aac/ogg/webm/mp4 格式，无时长限制。",
+  "keywords": ["audio", "transcribe", "asr", "speech-to-text"]
+}

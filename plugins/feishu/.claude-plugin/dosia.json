@@ -1,0 +1,14 @@
+{
+  "global": false,
+  "cliTools": ["lark-cli"],
+  "cliToolPackages": {
+    "lark-cli": { "npm": "@larksuite/cli", "binDir": "bin" }
+  },
+  "networkDomains": [
+    "*.feishu.cn",
+    "*.larksuite.com",
+    "*.larkoffice.com",
+    "*.feishucdn.com"
+  ],
+  "preSession": "lark-cli contact +get-user --format json --as user 2>/dev/null || true"
+}

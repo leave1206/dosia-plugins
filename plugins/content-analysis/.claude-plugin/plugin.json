@@ -1,0 +1,6 @@
+{
+  "name": "content-analysis",
+  "version": "1.0.0",
+  "description": "内容分析 — 小红书笔记多维度拆解与评分（三感六度、标题公式、封面7维、正文结构），支持 Excel/JSON/飞书表格多格式输入",
+  "keywords": ["content", "analysis", "xiaohongshu", "xhs", "note", "三感六度", "封面", "标题", "正文", "评分", "笔记分析"]
+}

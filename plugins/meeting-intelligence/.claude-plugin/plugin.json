@@ -1,0 +1,6 @@
+{
+  "name": "meeting-intelligence",
+  "version": "1.0.0",
+  "description": "会议智能分析 — 结构化记录、行为审查、知识沉淀提案、提案审批工作流",
+  "keywords": ["meeting", "analysis", "proposal", "knowledge"]
+}

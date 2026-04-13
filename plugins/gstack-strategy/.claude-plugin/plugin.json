@@ -1,0 +1,22 @@
+{
+  "name": "gstack-strategy",
+  "version": "2.0.0",
+  "description": "YC Office Hours + CEO Plan Review — product diagnostic, premise challenge, scope review",
+  "author": {
+    "name": "Garry Tan",
+    "url": "https://github.com/garrytan/gstack"
+  },
+  "keywords": [
+    "strategy",
+    "office-hours",
+    "ceo-review",
+    "product",
+    "brainstorm",
+    "scope",
+    "plan",
+    "review",
+    "diagnostic"
+  ],
+  "repository": "https://github.com/garrytan/gstack",
+  "license": "MIT"
+}

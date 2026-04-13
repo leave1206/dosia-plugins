@@ -1,0 +1,117 @@
+{
+  "name": "DOSIA Official Plugins",
+  "description": "DOSIA 官方插件市场 — 飞书集成、浏览器自动化、会议分析、知识库、流量监控等",
+  "owner": {
+    "name": "DOSIA Team"
+  },
+  "plugins": [
+    {
+      "name": "feishu",
+      "description": "飞书集成 — 19 个 skill 通过 lark-cli 操作飞书消息、文档、表格、任务、日历、邮件、会议、知识库",
+      "category": "integration",
+      "version": "1.0.0",
+      "tags": ["feishu", "lark", "飞书"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/feishu"
+      }
+    },
+    {
+      "name": "browser-automation",
+      "description": "Chrome 浏览器自动化 — 通过 chrome-devtools MCP 实现网页内容获取、平台发布、页面交互",
+      "category": "automation",
+      "version": "2.0.0",
+      "tags": ["browser", "chrome", "xhs", "twitter", "wechat"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/browser-automation"
+      }
+    },
+    {
+      "name": "audio-processing",
+      "description": "音频转写 — 通过腾讯云 COS + 火山引擎 ASR 将本地音频转写为带时间戳文本，支持 8 种格式无时长限制",
+      "category": "media",
+      "version": "1.0.0",
+      "tags": ["audio", "transcribe", "asr"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/audio-processing"
+      }
+    },
+    {
+      "name": "content-analysis",
+      "description": "内容分析 — 小红书笔记多维度拆解与评分（三感六度、标题公式、封面 7 维、正文结构）",
+      "category": "analysis",
+      "version": "1.0.0",
+      "tags": ["xiaohongshu", "xhs", "note", "analysis"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/content-analysis"
+      }
+    },
+    {
+      "name": "meeting-intelligence",
+      "description": "会议智能分析 — 结构化记录、行为审查、知识沉淀提案、提案审批工作流",
+      "category": "knowledge",
+      "version": "1.0.0",
+      "tags": ["meeting", "analysis", "proposal"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/meeting-intelligence"
+      }
+    },
+    {
+      "name": "team-knowledge",
+      "description": "团队知识库 — 公司价值观、行为准则、能力框架、各职能组 SOP/标准/方法论",
+      "category": "knowledge",
+      "version": "1.0.0",
+      "tags": ["knowledge", "company", "team"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/team-knowledge"
+      }
+    },
+    {
+      "name": "personal-knowledge",
+      "description": "个人知识库 — 多领域知识沉淀、洞察萃取、方法论提炼、个人成长追踪",
+      "category": "knowledge",
+      "version": "1.0.0",
+      "tags": ["personal", "knowledge", "growth"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/personal-knowledge"
+      }
+    },
+    {
+      "name": "gstack-strategy",
+      "description": "YC Office Hours + CEO Plan Review — 产品诊断、前提质疑、范围审查",
+      "category": "strategy",
+      "version": "2.0.0",
+      "tags": ["strategy", "office-hours", "ceo-review"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/gstack-strategy"
+      }
+    },
+    {
+      "name": "traffic-query",
+      "description": "流量项目监控 — 聚光投放数据查询，支持实时报表、离线日报、笔记消耗等 9 种报表类型只读查询",
+      "category": "ad-ops",
+      "version": "1.0.0",
+      "tags": ["ad-ops", "traffic", "report"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/traffic-query"
+      }
+    }
+  ]
+}

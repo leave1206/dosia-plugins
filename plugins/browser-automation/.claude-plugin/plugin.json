@@ -1,0 +1,6 @@
+{
+  "name": "browser-automation",
+  "version": "2.0.0",
+  "description": "Chrome 浏览器自动化 — 通过 chrome-devtools MCP 实现网页内容获取、平台发布、页面交互",
+  "keywords": ["browser", "chrome", "automation", "xhs", "twitter", "wechat", "publish", "fetch"]
+}

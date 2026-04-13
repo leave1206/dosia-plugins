@@ -1,0 +1,8 @@
+{
+  "name": "feishu",
+  "version": "1.0.0",
+  "description": "飞书集成 — 通过 lark-cli 操作飞书消息、文档、表格、任务、日历、邮件、会议、知识库",
+  "keywords": ["feishu", "lark", "飞书", "消息", "文档", "表格", "任务", "日历", "邮件", "会议"],
+  "author": { "name": "DOSIA" },
+  "license": "MIT"
+}
