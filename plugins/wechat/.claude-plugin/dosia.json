@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "name": "wechat",
+  "displayName": "微信",
+  "category": "im",
+  "version": "1.0.2",
+  "minDosiaVersion": "0.2.0",
+  "platforms": ["darwin-arm64", "darwin-x64"],
+  "trust": "verified",
+  "badge": "第三方 · 风险自担",
+  "tagline": "基于社区库 @canghe_ai/wechat-cli，非腾讯官方产品",
+  "homepage": "https://github.com/huohuoer/wechat-cli",
+  "disclaimer": "此插件依赖非腾讯官方的 wechat-cli 第三方库，存在以下潜在风险：\n\n1. 合规：微信用户协议可能不允许第三方工具读取本地数据\n2. 稳定性：微信升级可能导致 wechat-cli 兼容性问题\n3. 安全：第三方库代码未经 DOSIA 团队完整审计\n\n仅供个人学习 / 探索使用。使用本插件即表示你已知悉并自愿承担上述风险。",
+  "requireConsent": true,
+
+  "dependencies": {
+    "@canghe_ai/wechat-cli": "^0.2.4"
+  },
+
+  "cliTools": ["wechat-cli"],
+  "cliToolPackages": {
+    "wechat-cli": {
+      "npm": "@canghe_ai/wechat-cli",
+      "binDir": "bin",
+      "resolve": ["plugin-local", "monorepo", "system"]
+    }
+  },
+
+  "networkDomains": [],
+
+  "preSession": "wechat-cli sessions --limit 1 2>/dev/null || true",
+
+  "systemRequirements": [
+    {
+      "id": "macos-full-disk-access",
+      "type": "permission",
+      "platform": "darwin-arm64",
+      "title": "完全磁盘访问权限",
+      "openSettings": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+      "checkCommand": "wechat-cli sessions --limit 1"
+    },
+    {
+      "id": "wechat-running",
+      "type": "process",
+      "platform": "darwin-arm64",
+      "title": "微信正在运行",
+      "checkCommand": "pgrep -x WeChat"
+    }
+  ],
+
+  "setup": {
+    "required": true,
+    "steps": [
+      {
+        "id": "grant-disk-access",
+        "type": "permission",
+        "title": "授予完全磁盘访问权限",
+        "openSettings": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles",
+        "checkCommand": "wechat-cli sessions --limit 1"
+      },
+      {
+        "id": "init-keys",
+        "type": "sudo-command",
+        "title": "初始化微信密钥",
+        "command": "sudo wechat-cli init",
+        "stateFile": "~/.wechat-cli/all_keys.json"
+      }
+    ]
+  }
+}
