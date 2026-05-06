@@ -1,0 +1,10 @@
+{
+  "name": "wechat",
+  "description": "微信集成：查询会话历史、搜索聊天记录、列出联系人。基于 wechat-cli 本地内存扫描，不出本机。",
+  "version": "1.0.0",
+  "author": {
+    "name": "DOSIA",
+    "url": "https://github.com/leave1206/dosia"
+  },
+  "keywords": ["im", "wechat", "messaging"]
+}

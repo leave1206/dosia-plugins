@@ -112,6 +112,18 @@
         "url": "leave1206/dosia-plugins",
         "path": "plugins/traffic-query"
       }
+    },
+    {
+      "name": "wechat",
+      "description": "微信集成 — 通过社区库 wechat-cli 读取本地微信联系人、群、消息、未读、群历史，支持模糊搜索（第三方插件，风险自担）",
+      "category": "im",
+      "version": "1.0.2",
+      "tags": ["wechat", "im", "third-party"],
+      "source": {
+        "source": "git-subdir",
+        "url": "leave1206/dosia-plugins",
+        "path": "plugins/wechat"
+      }
     }
   ]
 }
