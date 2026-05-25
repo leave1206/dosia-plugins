@@ -15,6 +15,8 @@ view 相关命令索引。
 | [lark-base-view-rename.md](lark-base-view-rename.md) | `+view-rename` | 重命名视图 |
 | [lark-base-view-get-filter.md](lark-base-view-get-filter.md) | `+view-get-filter` | 读取筛选配置 |
 | [lark-base-view-set-filter.md](lark-base-view-set-filter.md) | `+view-set-filter` | 更新筛选配置 |
+| [lark-base-view-get-visible-fields.md](lark-base-view-get-visible-fields.md) | `+view-get-visible-fields` | 读取可见字段列表 |
+| [lark-base-view-set-visible-fields.md](lark-base-view-set-visible-fields.md) | `+view-set-visible-fields` | 更新可见字段列表 |
 | [lark-base-view-get-group.md](lark-base-view-get-group.md) | `+view-get-group` | 读取分组配置 |
 | [lark-base-view-set-group.md](lark-base-view-set-group.md) | `+view-set-group` | 更新分组配置 |
 | [lark-base-view-get-sort.md](lark-base-view-get-sort.md) | `+view-get-sort` | 读取排序配置 |
@@ -30,11 +32,11 @@ view 相关命令索引。
 
 | 视图类型 | 可用能力 |
 |------|------|
-| `grid` | `group` `sort` `filter` |
-| `kanban` | `group` `sort` `filter` `card` |
-| `gallery` | `sort` `filter` `card` |
-| `calendar` | `filter` `timebar` |
-| `gantt` | `group` `sort` `filter` `timebar` |
+| `grid` | `group` `sort` `filter` `visible_fields` |
+| `kanban` | `group` `sort` `filter` `card` `visible_fields` |
+| `gallery` | `sort` `filter` `card` `visible_fields` |
+| `calendar` | `filter` `timebar` `visible_fields` |
+| `gantt` | `group` `sort` `filter` `timebar` `visible_fields` |
 
 ## 说明
 
