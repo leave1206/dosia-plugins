@@ -4,6 +4,8 @@
 
 Fetch the message list for a conversation. Supports both group chats and direct messages.
 
+By default the response carries a `reactions` block (counts + details from `im.reactions.batch_query`) on every message that has reactions, and `update_time` on messages that were actually edited. Thread replies expanded via auto-`thread_replies` participate in the same batched enrichment. Pass `--no-reactions` to skip the extra round-trip. See [message enrichment](lark-im-message-enrichment.md) for the full contract.
+
 This skill maps to the shortcut: `lark-cli im +chat-messages-list` (internally calls `GET /open-apis/im/v1/messages`, and automatically resolves the p2p chat_id when needed).
 
 ## Commands
@@ -36,7 +38,7 @@ lark-cli im +chat-messages-list --chat-id oc_xxx --format json
 | Parameter | Required | Description |
 |------|------|------|
 | `--chat-id <id>` | One of two | Specify the conversation by its chat_id directly (e.g., group chat `oc_xxx`) |
-| `--user-id <id>` | One of two | Specify a DM conversation by the other user's open_id (`ou_xxx`); p2p chat_id is resolved automatically |
+| `--user-id <id>` | One of two | Specify a DM conversation by the other user's open_id (`ou_xxx`); p2p chat_id is resolved automatically. Requires user identity (`--as user`); not supported with bot identity |
 | `--start <time>` | No | Start time (ISO 8601 or date only) |
 | `--end <time>` | No | End time (ISO 8601 or date only) |
 | `--sort <order>` | No | Sort order: `asc` / `desc` (default `desc`) |
@@ -116,6 +118,7 @@ lark-cli api GET /open-apis/im/v1/messages \
 |---------|---------|---------|
 | `specify --chat-id <chat_id> or --user-id <open_id>` | Neither `--chat-id` nor `--user-id` was provided | You must provide exactly one |
 | `--chat-id and --user-id cannot be specified together` | Both parameters were provided | Use only one |
+| `--user-id requires user identity (--as user); use --chat-id when calling with bot identity` | `--user-id` was used with bot identity | The p2p resolution endpoint requires user identity. Either pass `--as user` or look up the p2p `chat_id` separately and pass it via `--chat-id` |
 | `P2P chat not found for this user` | `--user-id` was used but no p2p chat exists for the current identity and that user | Confirm the target direct-message relationship exists for the current identity |
 | `--start: invalid time format` | Invalid time format | Use ISO 8601 or date-only format such as `2026-03-10` |
 | Permission denied | Message read permissions are missing | Ensure the app has `im:message:readonly` and `im:chat:read` enabled |
@@ -128,12 +131,18 @@ lark-cli api GET /open-apis/im/v1/messages \
    lark-cli im +chat-search --query "<chat name keyword>" --format json
    lark-cli im +chat-messages-list --chat-id <chat_id>
    ```
-   **Do not use `im chats search` or `im chats list` — always use the `+chat-search` shortcut.**
+   **Do not use `im chats search` or `+chat-list` — always use the `+chat-search` shortcut.**
 2. **Prefer `--chat-id` when available:** if the chat_id is already known, use it directly to avoid extra API calls.
-3. **For direct messages:** use `--user-id` to resolve the p2p chat automatically instead of looking it up manually.
+3. **For direct messages:** use `--user-id` to resolve the p2p chat automatically instead of looking it up manually. This requires user identity (`--as user`); with bot identity, resolve the p2p `chat_id` yourself and pass it via `--chat-id`.
 4. **For time ranges:** both ISO 8601 and date-only inputs are supported. Date-only is usually simpler.
 5. **For full content:** table output truncates content. Use `--format json` when you need the complete message body.
 6. **For sender info:** the command already resolves sender names, so you do not need a separate lookup.
+7. **Application/bot identity + named group history:** If the user says "使用应用身份/以 bot 身份" and asks to list or read historical messages for a named group, use bot identity for both steps:
+   ```bash
+   lark-cli im +chat-search --as bot --query "<chat name keyword>" --format json
+   lark-cli im +chat-messages-list --as bot --chat-id <chat_id> --page-size 50 --format json
+   ```
+   Do not use `im +messages-search --as bot`; `+messages-search` is user-only. Continue with `--page-token` if `has_more=true`.
 
 ## References
 
