@@ -1,7 +1,7 @@
 ---
 name: lark-calendar
 version: 1.0.0
-description: "飞书日历（calendar）：提供日历与日程（会议）的全面管理能力。核心场景包括：查看/搜索日程、创建/更新日程、管理参会人、查询忙闲状态及推荐空闲时段。高频操作请优先使用 Shortcuts：+agenda（快速概览今日/近期行程）、+create（创建日程并按需邀请参会人）、+freebusy（查询用户主日历的忙闲信息和rsvp的状态）、+suggestion（针对时间未确定的预约日程需求，提供多个时间推荐方案）。"
+description: "飞书日历：管理日历日程和会议室。查看/搜索日程、创建/更新日程、管理参会人、查询忙闲和推荐时段、预定会议室。当用户需要查看日程安排、创建/修改会议、查询/预定会议室时使用。不负责：查询过去的视频会议记录（走 lark-vc）、待办任务（走 lark-task）。"
 metadata:
   requires:
     bins: ["lark-cli"]
@@ -10,93 +10,87 @@ metadata:
 
 # calendar (v4)
 
-**CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../lark-shared/SKILL.md`](../lark-shared/SKILL.md)，其中包含认证、权限处理**
-**CRITICAL — 所有的 Shortcuts 在执行之前，务必先使用 Read 工具读取其对应的说明文档，禁止直接盲目调用命令。**
+开始前先读 [`../lark-shared/SKILL.md`](../lark-shared/SKILL.md)（认证、权限处理）。
 
-## 核心场景
+**CRITICAL — 凡涉及预约日程/会议或查询/搜索会议室，第一步 MUST 读 [`references/lark-calendar-schedule-meeting.md`](references/lark-calendar-schedule-meeting.md)。禁止跳过此步直接调用 API 或 Shortcut！**
 
-日历技能包含以下核心场景：
+## 身份
 
-### 1. 预约日程
+日程操作默认使用 `--as user`（查看和管理当前用户的日程）。`--as bot` 只能访问 bot 自己的（空）日历，会拿到空结果——不要用 bot 身份查用户日程。
 
-这是日历技能最核心的场景，核心是让用户低成本地实现日程预约。
+```bash
+# BAD — bot 身份查用户日程，返回空列表
+lark-cli calendar +agenda --as bot
 
-> **💡 核心原则：做智能助理，提供辅助决策，而不是表单填写机或替用户做主。**
-
-**时间与日期推断规范：**
-为确保准确性，在涉及时间推断时，请严格遵循以下规则：
-- **星期的定义**：周一是一周的第一天，周日是一周的最后一天。计算`下周一`等相对日期时，务必基于当前真实日期和星期基准进行推算，避免算错日期。
-- **一天的范围**：当用户提到`明天`、`今天`等泛指某一天时，时间范围应默认覆盖整天时间范围。**切勿**自行缩减查询范围，以免遗漏晚上的时间安排。
-- **历史时间约束**：不能预约已经完全过去的时间。唯一的例外情况是“跨越当前时间”的日程，即日程的开始时间在过去，但结束时间在未来。
-
-**预约日程的工作流：**
-
-1. **智能推断默认值**
-   - 标题，参与人，时长均存在默认值，无需频繁的和用户确认。
-   - **参会人**：如未明确指定其他人，默认参会人仅为**用户自己**。当搜索特定参与人（人、群、会议室）出现多个结果无法唯一确定时，必须询问用户进行选择确认，并将该偏好记录为长期记忆，以便后续自动识别。
-   - **会议室**：目前不支持主动预定会议室，除非当前上下文中已经存在对应的会议室ID(omm_ 前缀) 且需要添加到日程中。
-   - **标题**：根据对话上下文自动生成（例如“沟通对齐”或“需求讨论”），如无法推断则默认为“会议”。
-   - **时长**：基于会议类型和上下文动态推断（例如：“评审/汇报”推断为 60 分钟等），如无法推断，则默认为 30 分钟。
-
-2. **时间建议与辅助决策（核心体验）**
-   - **有明确时间点**（如`明早10点`）：调用相关工具（如 `lark-cli calendar +freebusy` [lark-calendar-freebusy](references/lark-calendar-freebusy.md)）先查询该时间段参会人的忙闲状态（注：若参会人已有日程的 RSVP 状态为拒绝，则认为该时段为空闲）。若均无冲突，直接进入下一步确认并创建；若有冲突，提示用户冲突情况并询问是否继续创建或重新选择时间。
-   - **有时间区间**（如`明天`、`下午`、`本周`）：调用相关工具（如 `lark-cli calendar +suggestion` [lark-calendar-suggestion](references/lark-calendar-suggestion.md)）获取该区间内所有参会人的**多个时间推荐方案**供用户选择。**必须在用户确认方案后**，才能执行创建日程操作；且用户一旦选择了推荐的方案，**无需再次查询忙闲信息**。
-   - **无任何时间信息**：默认推断一个合理区间（如“今天”或“近两天”），并同样获取**多个时间推荐方案**供用户快速选择。
-   - **生活类需求**（如健身、游泳、遛弯、约饭、奶茶等，注意“约咖啡”算工作场景）：预期**不调用** `suggestion` 工具。应自行推断合适的非工作时间给到用户确认。如果无法推断，请尝试主动询问用户，并在用户给出反馈后形成记忆，以便后续直接应用。
-   - **模糊语义消解与长期记忆构建 (Aha Moment)**：针对用户专属的时间表达习惯（如“上班后”、“下班前”）或存在歧义的时间场景（如未指明上下午的12小时制），严禁主观臆断。应通过主动澄清明确真实意图，并将此类个性化定义沉淀为长期偏好，推动系统认知能力的持续进化，最终实现“下次即懂”的智能化体验。
-
-3. **非阻断式执行**
-   - 待用户确认具体时间选项后，执行 `lark-cli calendar +create --summary "..." --start "..." --end "..." --attendee-ids ...`
-
-4. **友好反馈**
-   - 报告结果：返回创建成功的日程摘要信息
-
-## 核心概念
-
-- **日历（Calendar）**：日程的容器。每个用户有一个主日历（primary calendar），也可以创建或订阅共享日历。
-- **日程（Event）**：日历中的单个事件条目，包含起止时间、地点、标题、参与人等属性。支持单次日程和重复日程，遵循RFC5545 iCalendar国际标准。
-- ***全天日程（All-day Event）***: 只按日期占用、没有具体起止时刻的日程，结束日期是包含在日程时间内的。
-- **日程实例（Instance）**：日程的具体时间实例，本质是对日程的展开。普通日程和例外日程对应1个Instance，重复性日程对应N个Instance。在按时间段查询时，可通过实例视图将重复日程展开为独立的实例返回，以便在时间线上准确展示和管理。
-- **重复规则（Rrule/Recurrence Rule）**：定义重复性日程的重复规则，比如`FREQ=DAILY;UNTIL=20230307T155959Z;INTERVAL=14`表示每14天重复一次。
-- **例外日程（Exception）**：重复性日程中与原重复性日程不一致的日程。
-- **参会人（Attendee）**：日程的参与者，可以是用户、群、会议室资源、外部邮箱地址等。每个参与人有独立的RSVP状态。
-- **响应状态（RSVP）**：参与人对日程邀请的回复状态（接受/拒绝/待定）。
-- **忙闲时间（FreeBusy）**：查询用户在指定时间段的忙闲状态，用于会议时间协调。
-
-## 资源关系
-
-```
-Calendar (日历)
-└── Event (日程)
-    ├── Attendee (参会人)
-    └── Reminder (提醒)
+# GOOD — user 身份查日程
+lark-cli calendar +agenda --as user
 ```
 
-## Shortcuts（推荐优先使用）
-
-Shortcut 是对常用操作的高级封装（`lark-cli calendar +<verb> [flags]`）。有 Shortcut 的操作优先使用。
+## Shortcuts
 
 | Shortcut | 说明 |
 |----------|------|
 | [`+agenda`](references/lark-calendar-agenda.md) | 查看日程安排（默认今天） |
 | [`+create`](references/lark-calendar-create.md) | 创建日程并邀请参会人（ISO 8601 时间） |
-| [`+freebusy`](references/lark-calendar-freebusy.md) | 查询用户主日历的忙闲信息和rsvp的状态 |
-| [`+suggestion`](references/lark-calendar-suggestion.md) | 针对时间未确定的预约日程需求，提供多个时间推荐方案 |
+| [`+update`](references/lark-calendar-update.md) | 更新既有日程字段，或独立增量添加/移除参会人和会议室 |
+| [`+freebusy`](references/lark-calendar-freebusy.md) | 查询用户主日历的忙闲信息和 RSVP 状态 |
+| [`+room-find`](references/lark-calendar-room-find.md) | 针对一个或多个**明确的**时间块查找可用会议室（无明确时间时禁止直接调用，需先走 +suggestion） |
+| [`+rsvp`](references/lark-calendar-rsvp.md) | 回复日程（接受/拒绝/待定） |
+| [`+suggestion`](references/lark-calendar-suggestion.md) | 根据非明确时间或一段时间范围，推荐多个可用时间块方案 |
 
-## +suggestion 使用
-在调用 `+suggestion` 之前，务必读取 [lark-calendar-suggestion](references/lark-calendar-suggestion.md) 中的使用说明，禁止直接调用命令。
-```bash
-lark-cli calendar +suggestion --start "2026-03-10T00:00:00+08:00" --end "2026-03-10T11:00:00+08:00" --attendee-ids "ou_xxx,oc_yyy" --duration-minutes 30 # 为用户ou_xxx和群组oc_yyy里的成员推荐空闲时段
-`````
+## 前置条件路由
+
+| 场景 | 前置要求 |
+|------|----------|
+| 预约日程/会议、查会议室 | 先读 [lark-calendar-schedule-meeting.md](references/lark-calendar-schedule-meeting.md) |
+| 编辑已有日程 | 先定位目标日程 `event_id`；若是重复性日程，必须定位到具体实例的 `event_id`（禁止使用原重复日程 ID） |
+| 删除/修改后验证 | 等待 2 秒再查询（API 最终一致性），不要告知用户你等待了 |
+| 调用任何 Shortcut | 先读其对应 reference 文档 |
+
+## 核心概念
+
+- **日程实例（Instance）**：重复性日程展开后的具体时间实例。操作重复日程的某次实例时，必须先定位该实例的 `event_id`，禁止使用原重复日程的 `event_id`。
+- **全天日程（All-day Event）**：只按日期占用、没有具体起止时刻的日程，结束日期是包含在日程时间内的。
+- **时间块 vs 时间范围**：时间块是具体确定的连续时间段（如 `14:00~15:00`），时间范围是泛指（如"今天下午"）。`+room-find` 必须基于确定时间块，不能基于模糊范围。
+- **会议室（Room）**："room"不是"房间"，是"会议室"。会议室是日程的一种参与人（resource attendee），不能脱离日程单独预定。
+
+## 术语映射
+
+用户日常说的"帮我约个日历""查一下今天的日历"，实际意图是针对**日程（Event）**的创建或查询，而非操作日历（Calendar）容器本身。自动将口语化的"日历"意图映射为"日程"操作。
+
+## 意图路由
+
+| 用户意图 | 路由到 |
+|----------|--------|
+| 查询过去的会议（"昨天的会议""上周的会"） | [`../lark-vc/SKILL.md`](../lark-vc/SKILL.md)（会议数据含即时会议，仅查日程会遗漏） |
+| 查询日历/日程或未来时间的会议 | 本 skill |
+| 预约/改约日程、添加/移除参会人、添加/更换会议室、调整时间 | 先判断新建 vs 编辑，再进入 [schedule-meeting 工作流](references/lark-calendar-schedule-meeting.md) |
+
+## 任务类型分流
+
+处理"预约/改约日程、添加/移除参会人、添加/更换会议室、调整时间"时，必须先判断新建 vs 编辑：
+
+- **编辑已有日程的强信号**：用户提到已存在的日程锚点（标题、时间段、`这个日程`、`这场会`）并表达修改动作（添加、移除、改到、换会议室、调整时间）。默认走编辑流，绝不能按新建处理。
+- **新建日程**：用户表达新增意图（"新约一个会""创建一个日程""安排一次会议"），且没有指向既有日程的修改动作。
+
+## 时间推断规范
+
+- **星期的定义**：周一是一周的第一天，周日是最后一天。计算"下周一"等相对日期时，基于当前真实日期推算。
+- **一天的范围**：用户提到"明天""今天"等泛指某天时，时间范围应覆盖整天，不要自行缩减。
+- **历史时间约束**：不能预约已经完全过去的时间。唯一例外是"跨越当前时间"的日程（开始在过去、结束在未来）。
+
+## 会议室规则
+
+- 凡是"预定/查询/搜索可用会议室"，都必须进入 [schedule-meeting 工作流](references/lark-calendar-schedule-meeting.md)。
+- `+room-find` 的时间输入必须是确定时间块，不能是时间区间搜索。
+- 用户仅要求"查会议室"但未提供明确时间时，必须先调用 `+suggestion` 获取可用时间块，再将时间块交给 `+room-find`。严禁猜测时间盲目调用。
+- 编辑已有日程时，"添加会议室"默认是增量语义，保留已有会议室；只有用户明确说"更换会议室""移除会议室"时才删除旧会议室。
 
 ## API Resources
 
 ```bash
-lark-cli schema calendar.<resource>.<method>   # 调用 API 前必须先查看参数结构
-lark-cli calendar <resource> <method> [flags] # 调用 API
+lark-cli calendar <resource> <method> [flags]
 ```
-
-> **重要**：使用原生 API 时，必须先运行 `schema` 查看 `--data` / `--params` 参数结构，不要猜测字段格式。
 
 ### calendars
 
@@ -121,33 +115,18 @@ lark-cli calendar <resource> <method> [flags] # 调用 API
   - `get` — 获取日程
   - `instance_view` — 查询日程视图
   - `patch` — 更新日程
-  - `search` — 搜索日程
+  - `search_event` — 搜索日程（仅返回 日程ID/主题/时间，详情需走 `events get`）
+  - `share_info` — 获取日程分享链接
 
 ### freebusys
 
   - `list` — 查询主日历日程忙闲信息
 
-## 权限表
+## 不在本 skill 范围
 
-| 方法 | 所需 scope |
-|------|-----------|
-| `calendars.create` | `calendar:calendar:create` |
-| `calendars.delete` | `calendar:calendar:delete` |
-| `calendars.get` | `calendar:calendar:read` |
-| `calendars.list` | `calendar:calendar:read` |
-| `calendars.patch` | `calendar:calendar:update` |
-| `calendars.primary` | `calendar:calendar:read` |
-| `calendars.search` | `calendar:calendar:read` |
-| `event.attendees.batch_delete` | `calendar:calendar.event:update` |
-| `event.attendees.create` | `calendar:calendar.event:update` |
-| `event.attendees.list` | `calendar:calendar.event:read` |
-| `events.create` | `calendar:calendar.event:create` |
-| `events.delete` | `calendar:calendar.event:delete` |
-| `events.get` | `calendar:calendar.event:read` |
-| `events.instance_view` | `calendar:calendar.event:read` |
-| `events.patch` | `calendar:calendar.event:update` |
-| `events.search` | `calendar:calendar.event:read` |
-| `freebusys.list` | `calendar:calendar.free_busy:read` |
+- 查询过去的视频会议记录 → [lark-vc](../lark-vc/SKILL.md)
+- 待办任务管理 → [lark-task](../lark-task/SKILL.md)
+- 会议室物理设施管理 → 管理员后台
 
 **注意（强制性）：**
 - 涉及日期（时间）字符串与时间戳的相互转换时，务必调用系统命令或脚本代码等外部工具进行处理，以确保转换的绝对准确。违者将导致严重的逻辑错误！
