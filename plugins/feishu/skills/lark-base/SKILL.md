@@ -1,7 +1,7 @@
 ---
 name: lark-base
-version: 1.2.0
-description: "当需要用 lark-cli 操作飞书多维表格（Base）时调用：适用于建表、字段管理、记录读写、视图配置、历史查询，以及角色/表单/仪表盘管理；也适用于把旧的 +table / +field / +record 写法改成当前命令写法。涉及字段设计、公式字段、查找引用、跨表计算、行级派生指标、数据分析需求时也必须使用本 skill。"
+version: 1.3.0
+description: "飞书多维表格（Base，云端协作）：用 lark-cli 操作飞书多维表格。【触发边界】仅当用户明确要飞书多维表格/Base/在线协作，或对象已是飞书 Base 链接时使用；用户要本地表格/数据文件（未点名飞书）则不要用本 skill。适用于飞书 Base 内的建表、字段管理、记录读写、视图配置、历史查询、角色/表单/仪表盘管理，以及把旧 +table / +field / +record 写法改成当前命令写法；涉及飞书 Base 内的字段设计、公式字段、查找引用、跨表计算、行级派生指标时使用。"
 metadata:
   requires:
     bins: ["lark-cli"]
