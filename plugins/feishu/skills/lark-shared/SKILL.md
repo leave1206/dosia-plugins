@@ -1,6 +1,6 @@
 ---
 name: lark-shared
-version: 1.0.0
+version: 1.1.0
 description: "飞书/Lark CLI 共享基础：应用配置初始化、认证登录（auth login）、身份切换（--as user/bot）、权限与 scope 管理、Permission denied 错误处理、安全规则。当用户需要第一次配置(`lark-cli config init`)、使用登录授权(`lark-cli auth login`)、遇到权限不足、切换 user/bot 身份、配置 scope、或首次使用 lark-cli 时触发。"
 ---
 
@@ -116,3 +116,12 @@ lark-cli auth login --domain calendar --no-wait --json
 - **禁止输出密钥**（appSecret、accessToken）到终端明文。
 - **写入/删除操作前必须确认用户意图**。
 - 用 `--dry-run` 预览危险请求。
+
+## 操作结果诚实性（发送 / 创建必回读核验）
+
+涉及"发送消息 / 创建文档 / 创建表格 / 上传文件 / 导入云空间"等**产生外部副作用的写操作**时，**绝不能凭命令"看起来跑完了"就宣称成功**：
+
+- **强制 `--json` + 校验返回码**：写操作一律加 `--json`，读 `code`（0 才成功）/ `msg` / 业务数据（`message_id` / `spreadsheet_token` / `url`）。`code != 0`、stderr 有 error、或拿不到预期 id/链接 = **失败**，不是成功。
+- **回读核验**：发完消息用 `im +messages-list` 确认消息真在目标会话里；创建完表格/文档用对应 get 确认对象真实存在、链接可访问，再向用户报"已发 / 已创建"。
+- **失败如实报（amber 口径，不静默吞、不红色伪装）**：失败时如实告诉用户"这次没发出去 / 没创建成功" + 具体原因（权限不足 console_url / scope 缺失 / 身份不对），提议补齐或换方式。**严禁未核验就写"已发到飞书 ✅"**——曾发生"宣称已发，用户飞书零消息"。
+- **身份送达陷阱**：`im +messages-send` 只支持 **bot 身份**，消息以应用名义发出、且只进 bot 在场的会话。**bot 不能替用户给"我自己"发消息**——想发给用户本人，先确认目标会话 bot 在场，否则用户根本收不到。别把"命令退出码 0"当成"用户收到了"。
