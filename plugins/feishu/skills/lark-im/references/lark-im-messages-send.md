@@ -18,6 +18,14 @@ Messages sent by this tool are visible to other people. Before calling it, you *
 
 When using `--as bot`, the message is sent in the app's name, so make sure the app has already been added to the target chat.
 
+## 发送结果核验（必做，别谎报已发）
+
+发送是产生外部副作用的写操作 —— **绝不能凭命令跑完就说"已发到飞书"**（详见 [`../../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) §操作结果诚实性）：
+
+- 加 `--json`，读返回 `code`（0 才成功）+ `message_id`。`code != 0` / 无 `message_id` = **发送失败**，如实告诉用户没发出去 + 原因，别写"已发 ✅"。
+- **bot 身份送达陷阱**：本命令只支持 bot 身份，消息以应用名义发出、且只进 **bot 已在场**的会话。**bot 不能替用户给"我自己 / 给自己发的消息"发** —— 用户根本收不到。要发给用户本人，先确认 bot 在目标会话里，否则如实说明做不到，而不是宣称已发。
+- 拿到 `message_id` 后，必要时用 `im +messages-list` 回读确认消息真在目标会话里，再向用户报已发。
+
 ## Commands
 
 ```bash
