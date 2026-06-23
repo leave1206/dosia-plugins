@@ -1,60 +1,59 @@
 ---
 name: list-history
-description: 查询某个微信联系人或群的历史消息记录。用于"帮我翻一下 XXX 的聊天记录"、"昨天和 XXX 聊了什么"、"XX 群今天讨论了什么"等场景。
+description: 读某个微信联系人或群的完整聊天记录——文字、图片、链接卡片、文件等多种消息按时间顺序交错呈现。用于"帮我翻一下 XXX 的聊天记录"、"昨天和 XXX 聊了什么"、"XX 群今天讨论了什么"、做总结/拆解前提取完整上下文。
 ---
 
-# 微信历史消息查询技能
+# 微信聊天记录（完整·富类型）
 
-通过 wechat-cli 读取本机微信数据库，列出指定联系人或群的历史消息。
+读某个会话从头到尾的**完整 transcript**：文字、图片、链接、文件、语音、视频
+按时间**交错**排好，一次拿全，顺序天然正确。底层 `wechat-rich-cli` 直接读
+已解密的消息库，**不关 SIP、本地只读**。
+
+> 这是「读对话」的主场景。只想要图片 → `read-image`；只想要链接 →
+> `read-link-card`；看朋友圈 → `read-moments`。
 
 ## 何时触发
 
-- 用户说"帮我翻一下 XXX 的聊天记录"、"昨天和 XXX 聊了什么"
-- 用户说"XX 群今天讨论了什么"、"XX 群 8 月份的消息"
-- 做总结前需要提取上下文
+- "帮我翻一下和 XXX 的聊天记录" / "昨天和 XXX 聊了什么"
+- "XX 群今天讨论了什么" / "把 XX 群这段聊天总结一下"
+- 拆解 / 总结前需要完整上下文（含其中的图片和链接）
 
 ## 使用方法
 
-### 按联系人
-
 ```bash
-wechat-cli messages --talker "张三" --limit 50 --format json
+wechat-rich-cli history --talker "张三" --limit 50
 ```
 
-### 按群
+- `--talker`：联系人备注/昵称 或 群名（自动解析为 wxid → 会话表）。也可 `--wxid <wxid>`。
+- `--limit`：默认 50、最大 1000，取最近 N 条，按时间**正序**返回（老→新，便于阅读）。
+- `--types text,image,link,file`：可选，只看某几类。
+- `--out DIR`：解码图片的落盘目录，默认 DOSIA 已授权的图片缓存目录（直接可 Read）。
 
-群名和好友名一样用 `--talker`；工具会自动识别类型。
+## 返回结构
 
-### 时间范围
-
-```bash
-wechat-cli messages --talker "项目群" --since 2026-04-20 --until 2026-04-22 --format json
+```jsonc
+{ "chat": {"name":"张三","is_group":false}, "count": 50,
+  "messages": [
+    {"type":"text","sender":"张三","time_iso":"…","text":"在吗"},
+    {"type":"image","sender":"我","image_path":"/…/x.jpg","ok":true},
+    {"type":"link","sender":"张三","title":"…","url":"https://…","description":"…"},
+    {"type":"file","sender":"张三","file_name":"合同.pdf"},
+    {"type":"quote","sender":"我","text":"引用的话"},
+    {"type":"voice|video|sticker|system|location|other", "sender":"…"}
+  ] }
 ```
 
-ISO 日期格式。"今天" / "昨天" / "本周" 要自己转换：
-- 今天：`date +%Y-%m-%d`
-- 昨天：`date -v -1d +%Y-%m-%d` (macOS)
-- 本周：周一到今天
+- **图片**：`ok:true` 的 `image_path` 用 **Read** 工具查看；本地未缓存的图 `ok:false`（用 `read-image` 走更全的解析）。
+- **sender**：1:1 会话里自己显示「我」；群里走真实昵称反查。
 
-### 分页
+## 密钥过期（看不到最近消息时）
 
-`--limit` 默认 50，最大 500。超过用 `--offset` 翻页，但建议先提示用户
-"消息很多，我只看最新 50 条还是全部？"
+若输出里有 `stale_keys`（微信滚了新分片、最近消息/图读不到）：先跑
+`wechat-rich-cli refresh` 刷新密钥，成功就重试本次查询；若 refresh 返回
+`needs_authorization`，告诉用户跑一次 `sudo wechat-cli init`（之后日常会自动免授权）。
+**别在缺 stale_keys 提示时假装"最近没消息"。**
 
-## 返回字段
+## 隐私
 
-- `sender`: 发言人（群里才有意义）
-- `timestamp`: 精确时间
-- `content`: 消息内容
-- `msg_type`: text / image / file / link / system
-
-图片 / 文件只返回元信息（尺寸、文件名），不直接展示（那是 read-media 技能的事，本 skill 不管）。
-
-## 回复用户
-
-按时间顺序展示（时间 + 发言人 + 内容）。如果消息多，先给用户"共 N 条，
-从 YYYY-MM-DD 到 YYYY-MM-DD"让用户决定是读全部还是总结。
-
-注意：**微信消息是用户私人数据，不要未经确认就把完整对话倒出来给
-agent 做分析**。用户明确说"总结这段聊天"才总结；问"昨天聊了什么主题"
-可以只返回主题不带原文。
+微信聊天是用户私人数据。问"昨天聊了什么主题"只给主题，不倒原文；用户明确说
+"总结这段对话"才展开。不要未经确认就把整段对话（尤其含图片/隐私）全量倒出。
