@@ -1,0 +1,9 @@
+{
+  "name": "@dosia-plugins/feishu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DOSIA official Feishu (Lark) integration plugin — bundled lark-cli with official DOSIA app credentials.",
+  "dependencies": {
+    "@larksuite/cli": "^1.0.56"
+  }
+}
