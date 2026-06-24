@@ -1,14 +1,52 @@
 {
-  "global": false,
-  "cliTools": ["lark-cli"],
+  "schemaVersion": 2,
+  "name": "feishu",
+  "displayName": "飞书",
+  "category": "im",
+  "kind": "connector",
+  "global": true,
+  "version": "1.0.1",
+  "minDosiaVersion": "0.2.0",
+  "platforms": [
+    "darwin-arm64",
+    "darwin-x64",
+    "win32-x64"
+  ],
+  "trust": "official",
+  "badge": "官方",
+  "tagline": "飞书官方集成 · 使用字节跳动官方 @larksuite/cli",
+  "homepage": "https://github.com/larksuite/cli",
+  "cliTools": [
+    "lark-cli"
+  ],
   "cliToolPackages": {
-    "lark-cli": { "npm": "@larksuite/cli", "binDir": "bin" }
+    "lark-cli": {
+      "npm": "@larksuite/cli",
+      "binDir": "bin",
+      "resolve": [
+        "plugin-local",
+        "monorepo",
+        "system"
+      ]
+    }
   },
   "networkDomains": [
     "*.feishu.cn",
     "*.larksuite.com",
+    "open.feishu.cn",
+    "accounts.feishu.cn",
     "*.larkoffice.com",
     "*.feishucdn.com"
   ],
-  "preSession": "lark-cli contact +get-user --format json --as user 2>/dev/null || true"
+  "needsSystemTls": true,
+  "preSession": "lark-cli contact +get-user --format json --as user 2>/dev/null || true",
+  "setup": {
+    "required": true,
+    "entryAgent": "agents/connect.md",
+    "tools": [
+      "feishu_publish_to_nas",
+      "feishu_fetch_from_nas",
+      "feishu_cleanup_lark_state"
+    ]
+  }
 }
