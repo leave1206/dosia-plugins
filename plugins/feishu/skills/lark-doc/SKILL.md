@@ -1,143 +1,49 @@
 ---
 name: lark-doc
-version: 1.1.0
-description: "飞书云文档（云端协作文档）：在飞书创建和编辑在线文档。【触发边界】仅当用户明确要飞书文档/在线协作/分享给同事，或对象已是飞书文档/Wiki 链接时使用；用户要本地 Markdown/Word 文件（未点名飞书）则写本地 + 附件回传，不要用本 skill。功能：从 Markdown 建文档、读取/更新文档（追加/覆盖/替换/插入/删除）、上传下载文档内图片文件、搜索云空间文档。当用户已在飞书语境下需按名称定位飞书电子表格/报表等云对象时，可用本 skill 的 docs +search 做资源发现。"
+description: "飞书云文档（Docx / Wiki）内容操作：读取、创建、编辑文档，插入或下载图片附件，以及操作思维笔记。用户提供文档 URL/token（包括 doubao.com 的 /docx/、/wiki/）时使用；按 URL 路径/token 而非域名路由。文档内嵌资源按读取参考中的统一规则分流。文档评论走 lark-drive；表格或 Base 内部数据操作不在本 skill。"
 metadata:
   requires:
     bins: ["lark-cli"]
-  cliHelp: "lark-cli docs --help"
+    skills: ["lark-shared"]
+  cliHelp: "lark-cli docs --help;lark-cli mindnotes --help"
 ---
 
-# docs (v1)
+# docs
 
-**CRITICAL — 开始前 MUST 先用 Read 工具读取 [`../lark-shared/SKILL.md`](../lark-shared/SKILL.md)，其中包含认证、权限处理**
+## 场景与 Shortcut 路由
 
-## 核心概念
+**CRITICAL：先判断场景，再读取该场景的参考文件；不要在任务开始时一次性读取全部参考文件。每个文件只在首次进入对应阶段时读取一次。**
 
-### 文档类型与 Token
+**身份：文档操作推荐显式指定 `--as user`。例外：如果 `doc_token` / `note_doc_token` 等是从 bot 链路（如 `vc +detail --as bot` → `note +detail --as bot`）取得的，应继续显式使用 `--as bot`，不要无条件切回 user——身份延续规则见 [`../lark-shared/SKILL.md`](../lark-shared/SKILL.md)。**
 
-飞书开放平台中，不同类型的文档有不同的 URL 格式和 Token 处理方式。在进行文档操作（如添加评论、下载文件等）时，必须先获取正确的 `file_token`。
+**所有表示本地文件的 `@path` 均使用 `@./xxx` 形式的相对路径，并以运行 `lark-cli` 时的当前工作目录（CWD）为基准。**
 
-### 文档 URL 格式与 Token 处理
+### 文档内容
 
-| URL 格式 | 示例                                                      | Token 类型 | 处理方式 |
-|----------|---------------------------------------------------------|-----------|----------|
-| `/docx/` | `https://example.larksuite.com/docx/doxcnxxxxxxxxx`    | `file_token` | URL 路径中的 token 直接作为 `file_token` 使用 |
-| `/doc/` | `https://example.larksuite.com/doc/doccnxxxxxxxxx`     | `file_token` | URL 路径中的 token 直接作为 `file_token` 使用 |
-| `/wiki/` | `https://example.larksuite.com/wiki/wikcnxxxxxxxxx`    | `wiki_token` | ⚠️ **不能直接使用**，需要先查询获取真实的 `obj_token` |
-| `/sheets/` | `https://example.larksuite.com/sheets/shtcnxxxxxxxxx`  | `file_token` | URL 路径中的 token 直接作为 `file_token` 使用 |
-| `/drive/folder/` | `https://example.larksuite.com/drive/folder/fldcnxxxx` | `folder_token` | URL 路径中的 token 作为文件夹 token 使用 |
+- **读取 / 摘要 — [`+fetch`](references/lark-doc-fetch.md)**：先读参考再获取文档。
+- **从零创作 — [`创建工作流`](references/lark-doc-create-workflow.md)**：先完整执行创建工作流，**简单任务不是跳过的理由**；
+- **导入 / 空文档 — [`+create`](references/lark-doc-create.md)**：仅创建空文档或原样导入用户提供的完整内容时，跳过创建工作流。
+- **编辑 / block 直达链接 — [`+update`](references/lark-doc-update.md)**：语义改写、润色、重组、补写或排版均按 update 参考完成。
 
-### Wiki 链接特殊处理（关键！）
+### 辅助能力
 
-知识库链接（`/wiki/TOKEN`）背后可能是云文档、电子表格、多维表格等不同类型的文档。**不能直接假设 URL 中的 token 就是 file_token**，必须先查询实际类型和真实 token。
+- **草稿初始化、解析与统计 — [`+script`](references/lark-doc-script.md)**：支持解析文档 URL / token 与本地 XML，统计字数并返回字符诊断；不支持 Markdown 输入。
+- **历史版本 — [`+history-list` / `+history-revert` / `+history-revert-status`](references/lark-doc-history.md)**：查询、回滚文档历史版本或检查回滚任务状态。
 
-#### 处理流程
+### 资源、画板与思维笔记
 
-1. **使用 `wiki.spaces.get_node` 查询节点信息**
-   ```bash
-   lark-cli wiki spaces get_node --params '{"token":"wiki_token"}'
-   ```
+- **插入本地素材 — [`+media-insert`](references/lark-doc-media-insert.md)**：在文末插入本地图片或文件。
+- **预览素材 — [`+media-preview`](references/lark-doc-media-preview.md)**：预览文档中的图片、附件或素材。
+- **下载素材 — [`+media-download`](references/lark-doc-media-download.md)**：下载文档中的图片、附件、素材或画板缩略图。
+- **Docx 封面 — [`+resource-download` / `+resource-update` / `+resource-delete`](references/lark-doc-resource-cover.md)**：下载、更新或删除 Docx 封面。
+- **画板 — [`画板工作流`](references/lark-doc-whiteboard.md)**：创建或更新画板时先读取工作流；更新已有画板必须复用现有 token，禁止新建空白画板；使用 [`whiteboard +update`](../lark-whiteboard/references/lark-whiteboard-update.md) 写入。
+- **思维笔记 — `mindnotes`**：已有思维笔记走 [`思维笔记链路`](references/lark-doc-mindnote.md)；新建思维笔记走 [`lark-doc-whiteboard`](references/lark-doc-whiteboard.md)。
 
-2. **从返回结果中提取关键信息**
-   - `node.obj_type`：文档类型（docx/doc/sheet/bitable/slides/file/mindnote）
-   - `node.obj_token`：**真实的文档 token**（用于后续操作）
-   - `node.title`：文档标题
+### 认证与 Scope
 
-3. **根据 `obj_type` 使用对应的 API**
+执行 Shortcut 时，不预读 [`lark-shared`](../lark-shared/SKILL.md) 或预跑 `auth status --verify`；仅遇到未认证、token / 身份或 scope 错误时读取该 Skill，修复后重试。认证、身份或 scope 管理请求则直接使用该 Skill。
 
-   | obj_type | 说明 | 使用的 API |
-   |----------|------|-----------|
-   | `docx` | 新版云文档 | `drive file.comments.*`、`docx.*` |
-   | `doc` | 旧版云文档 | `drive file.comments.*` |
-   | `sheet` | 电子表格 | `sheets.*` |
-   | `bitable` | 多维表格 | `bitable.*` |
-   | `slides` | 幻灯片 | `drive.*` |
-   | `file` | 文件 | `drive.*` |
-   | `mindnote` | 思维导图 | `drive.*` |
+## 不在本 Skill 范围
 
-#### 查询示例
-
-```bash
-# 查询 wiki 节点
-lark-cli wiki spaces get_node --params '{"token":"wiki_token"}'
-```
-
-返回结果示例：
-```json
-{
-   "node": {
-      "obj_type": "docx",
-      "obj_token": "xxxx",
-      "title": "标题",
-      "node_type": "origin",
-      "space_id": "12345678910"
-   }
-}
-```
-
-### 资源关系
-
-```
-Wiki Space (知识空间)
-└── Wiki Node (知识库节点)
-    ├── obj_type: docx (新版文档)
-    │   └── obj_token (真实文档 token)
-    ├── obj_type: doc (旧版文档)
-    │   └── obj_token (真实文档 token)
-    ├── obj_type: sheet (电子表格)
-    │   └── obj_token (真实文档 token)
-    ├── obj_type: bitable (多维表格)
-    │   └── obj_token (真实文档 token)
-    └── obj_type: file/slides/mindnote
-        └── obj_token (真实文档 token)
-
-Drive Folder (云空间文件夹)
-└── File (文件/文档)
-    └── file_token (直接使用)
-```
-
-## 重要说明：画板编辑
-> **⚠️ lark-doc skill 不能直接编辑已有画板内容，但 `docs +update` 可以新建空白画板**
-### 场景 1：已通过 docs +fetch 获取到文档内容和画板 token
-如果用户已经通过 `docs +fetch` 拉取了文档内容，并且文档中已有画板（返回的 markdown 中包含 `<whiteboard token="xxx"/>` 标签），请引导用户：
-1. 记录画板的 token
-2. 查看 [`../lark-whiteboard/SKILL.md`](../lark-whiteboard/SKILL.md) 了解如何编辑画板内容
-### 场景 2：刚创建画板，需要编辑
-如果用户刚通过 `docs +update` 创建了空白画板，需要编辑时：
-**步骤 1：按空白画板语法创建**
-- 在 `--markdown` 中直接传 `<whiteboard type="blank"></whiteboard>`
-- 需要多个空白画板时，在同一个 `--markdown` 里重复多个 whiteboard 标签
-  **步骤 2：从响应中记录 token**
-- `docs +update` 成功后，读取响应字段 `data.board_tokens`
-- `data.board_tokens` 是新建画板的 token 列表，后续编辑直接使用这里的 token
-  **步骤 3：引导编辑**
-- 记录需要编辑的画板 token
-- 查看 [`../lark-whiteboard/SKILL.md`](../lark-whiteboard/SKILL.md) 了解如何编辑画板内容
-### 注意事项
-- 已有画板内容无法通过 lark-doc 的 `docs +update` 直接编辑
-- 编辑画板需要使用专门的 [`../lark-whiteboard/SKILL.md`](../lark-whiteboard/SKILL.md)
-
-## 快速决策
-- **前提：用户已在飞书语境下**（明确说飞书 / 在飞书里 / 给的是飞书链接）。用户泛泛说“表格 / Excel / 报表”而**未点名飞书**时，不要默认走飞书 —— 很可能是要本地文件，应写本地 + 附件回传。
-- 在飞书云空间里按名称找“一个飞书表格 / 飞书报表 / 最近打开的飞书文档”，先用 `lark-cli docs +search` 做资源发现。
-- `docs +search` 不是只搜文档 / Wiki；结果里会直接返回 `SHEET` 等云空间对象。
-- 拿到 spreadsheet URL / token 后，再切到 `lark-sheets` 做对象内部读取、筛选、写入等操作。
-
-## 补充说明 
-`docs +search` 除了搜索文档 / Wiki，也承担“在飞书语境下先定位云空间对象，再切回对应业务 skill 操作”的资源发现入口角色。**仅当用户已明确指向飞书**时从这里开始；用户只说“表格 / 报表”而没点名飞书，不构成走飞书的理由。
-
-## Shortcuts（推荐优先使用）
-
-Shortcut 是对常用操作的高级封装（`lark-cli docs +<verb> [flags]`）。有 Shortcut 的操作优先使用。
-
-| Shortcut | 说明 |
-|----------|------|
-| [`+search`](references/lark-doc-search.md) | Search Lark docs, Wiki, and spreadsheet files (Search v2: doc_wiki/search) |
-| [`+create`](references/lark-doc-create.md) | Create a Lark document |
-| [`+fetch`](references/lark-doc-fetch.md) | Fetch Lark document content |
-| [`+update`](references/lark-doc-update.md) | Update a Lark document |
-| [`+media-insert`](references/lark-doc-media-insert.md) | Insert a local image or file at the end of a Lark document (4-step orchestration + auto-rollback) |
-| [`+media-download`](references/lark-doc-media-download.md) | Download document media or whiteboard thumbnail (auto-detects extension) |
-| [`+whiteboard-update`](references/lark-doc-whiteboard-update.md) | Update an existing whiteboard in lark document with whiteboard dsl. Such DSL input from stdin. refer to lark-whiteboard skill for more details. |
-
+- **Drive 文件级操作**：找文档、导入导出、云空间文件上传 / 下载 / 权限管理 → [`lark-drive`](../lark-drive/SKILL.md)。复制文档、创建副本或另存为副本时，按其指引使用 `lark-cli drive files copy`；不要用 `docs +fetch` + `docs +create` 重建正文。
+- **文档评论**：添加、查看、回复评论或增删 reaction → [`lark-drive`](../lark-drive/SKILL.md)。
