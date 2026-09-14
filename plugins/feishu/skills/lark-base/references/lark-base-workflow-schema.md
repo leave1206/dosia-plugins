@@ -1,6 +1,21 @@
-# Workflow 数据结构参考
+# Workflow steps JSON SSOT
 
-本文档定义 `+workflow-create` / `+workflow-update` 命令 `--json` body 的完整数据结构（V2 协议）。
+本文档是 Workflow `steps` JSON 的单一事实来源（SSOT），定义完整数据结构，适用于：
+- **查询场景**：理解 `+workflow-get` 返回的 `steps` 结构
+- **创建/修改场景**：构造 `+workflow-create` / `+workflow-update` 的 `--json` body
+> 💡 **本文档是纯字段参考**。如需**创建/修改**工作流的完整示例，请阅读 [Workflow](lark-base-workflow.md)。
+---
+## 📖 快速导航
+
+根据你的需求跳转到对应章节：
+
+| 需求 | 章节 |
+|------|------|
+| 了解 Step 基础结构 | [WorkflowStep 基础结构](#workflowstep-基础结构) |
+| 查询 Trigger 类型及 data 字段 | [Trigger data](#trigger-data-详细结构) |
+| 查询 Action 类型及 data 字段 | [Action data](#action-data-详细结构) |
+| 查询 Branch/Loop 结构 | [Branch data](#branch-data-详细结构) / [System data](#system-data-详细结构) |
+| 查询 ValueInfo/Condition 等公共类型 | [公共类型](#公共类型) |
 
 ---
 
@@ -13,9 +28,6 @@
   "id": "step_xxx",
   "type": "AddRecordTrigger",
   "title": "监控新订单",
-  "children": {
-    "links": []
-  },
   "next": "step_yyy",
   "data": {}
 }
@@ -86,9 +98,10 @@
 | `ChangeRecordTrigger` | 记录满足条件时触发 |
 | `TimerTrigger` | 定时触发 |
 | `ReminderTrigger` | 日期提醒触发 |
+| `ButtonTrigger` | 按钮点击触发 |
 | `LarkMessageTrigger` | 接收飞书消息触发 |
 
-> 所有 Trigger 节点的 `children.links` 为空 `[]`，通过 `next` 串联后继。
+> 所有 Trigger 节点**请勿设置** `children` ，通过 `next` 串联后继。
 
 ### 触发器选型指南
 
@@ -108,11 +121,13 @@
 | `AddRecordAction` | 新增记录 |
 | `SetRecordAction` | 更新记录 |
 | `FindRecordAction` | 查找记录 |
+| `HTTPClientAction` | HTTP 请求 |
 | `Delay` | 延迟 |
 | `LarkMessageAction` | 发送飞书消息 |
 | `GenerateAiTextAction` | AI 生成文本 |
+| `AIAnalysisAction` | AI 分析 |
 
-> 所有 Action 节点的 `children.links` 为空 `[]`，通过 `next` 串联后继。
+> 所有 Action 节点**请勿设置** `children` ，通过 `next` 串联后继。
 
 ### Branch 类型
 
@@ -120,6 +135,7 @@
 |------|------|
 | `IfElseBranch` | 条件分支，`children.links` 含 `if_true` 和 `if_false` |
 | `SwitchBranch` | 多路分支，`children.links` 含多个 `case` |
+| `AIClassificationBranch` | AI 分类分支，`children.links` 含多个 `case` |
 
 ### System 类型
 
@@ -130,6 +146,7 @@
 ---
 
 ## Trigger data 详细结构
+
 
 ### AddRecordTrigger
 
@@ -181,13 +198,13 @@
 ```
 
 | 字段 | 必填 | 说明 |
-|------|------|------|
-| `table_name` | 是 | 监控的数据表名 |
-| `record_watch_conjunction` | 否 | 记录筛选组合方式：`and` / `or`，默认 `and` |
-| `record_watch_info` | 否 | 记录级过滤条件（修改前值匹配），为空则监听全部 |
-| `field_watch_info` | 否 | 字段级监控条件列表，至少一个 |
-| `trigger_control_list` | 否 | 触发控制，可选值：`pasteUpdate` / `automationBatchUpdate` / `syncUpdate` / `appendImport` |
-| `condition_list` | 否 | 过滤条件数组，数组中每个元素为 AndCondition 结构，多个 AndCondition 之间为 OR 关系 |
+|------|----|------|
+| `table_name` | 是  | 监控的数据表名 |
+| `record_watch_conjunction` | 否  | 记录筛选组合方式：`and` / `or`，默认 `and` |
+| `record_watch_info` | 否  | 记录级过滤条件（修改前值匹配），为空则监听全部 |
+| `field_watch_info` | 是  | 字段级监控条件列表，至少一个 |
+| `trigger_control_list` | 否  | 触发控制，可选值：`pasteUpdate` / `automationBatchUpdate` / `syncUpdate` / `appendImport` |
+| `condition_list` | 否  | 过滤条件数组，数组中每个元素为 AndCondition 结构，多个 AndCondition 之间为 OR 关系 |
 
 `FieldWatchItem`：
 
@@ -224,7 +241,7 @@
 {
   "table_name": "项目表",
   "field_name": "截止日期",
-  "offset": 1,
+  "offset": -1,
   "unit": "DAY",
   "hour": 9,
   "minute": 0,
@@ -235,12 +252,29 @@
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `table_name` | 是 | 数据表名 |
-| `field_name` | 是 | 日期字段名（必须为 DateTime / CreatedTime / Formula / Lookup 类型） |
+| `field_name` | 是 | 日期字段名（必须为 `datetime` / `created_at` / `formula` / `lookup` 类型） |
 | `unit` | 是 | 偏移单位：`MINUTE` / `HOUR` / `DAY` / `WEEK` / `MONTH` |
-| `offset` | 是 | 提前/延后的偏移量（正数=提前，负数=延后；范围由 `unit` 决定）：`MINUTE` ∈ {0, 5, 15, 30, -5, -15, -30}；`HOUR` ∈ [-6, -1] ∪ [1, 6]；`DAY` ∈ [-7, 7]；`WEEK` ∈ [-7, -1] ∪ [1, 7]；`MONTH` ∈ [-7, -1] ∪ [1, 7] |
+| `offset` | 是 | 提前/延后的偏移量（触发时间 = 日期字段时间 + `offset` × `unit`，因此负数=提前、正数=延后；范围由 `unit` 决定）：`MINUTE` ∈ {0, 5, 15, 30, -5, -15, -30}；`HOUR` ∈ [-6, -1] ∪ [1, 6]；`DAY` ∈ [-7, 7]；`WEEK` ∈ [-7, -1] ∪ [1, 7]；`MONTH` ∈ [-7, -1] ∪ [1, 7] |
 | `hour` | 是 | 触发小时 (0-23)，默认 9 |
 | `minute` | 是 | 触发分钟 (0-59)，默认 0 |
 | `condition_list` | 否 | 过滤条件数组，数组中每个元素为 AndCondition 结构，多个 AndCondition 之间为 OR 关系  | 
+
+
+### ButtonTrigger
+
+```json
+{
+  "button_type": "buttonField",
+  "table_name": "审批表"
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `button_type` | 是 | 按钮类型：`buttonField`（表格里的按钮，可操作当前记录数据）/ `buttonElement`（仪表盘、应用页面上的按钮，可执行整体操作） |
+| `table_name` | 否 | 绑定的数据表名，仅 `button_type=buttonField` 时填写 |
+
+> `buttonField` 和 `buttonElement` 的输出能力不同，详见下方「ButtonTrigger（按钮触发器）」输出说明。
 
 
 ### LarkMessageTrigger
@@ -248,7 +282,7 @@
 ```json
 {
   "receive_scene": "group",
-  "receiver": [{ "value_type": "group", "value": "测试群" }],
+  "receiver": [{ "value_type": "group", "value": {"id": "oc_xxxx", "name": "测试群"} }],
   "scope": "all",
   "filter": {
     "conjunction": "and",
@@ -260,22 +294,22 @@
 }
 ```
 
-| 字段 | 必填 | 说明 |
-|------|------|------|
-| `receive_scene` | 是 | 接收场景：`group`（群聊）/ `chat`（单聊） |
-| `receiver` | 是 | 触发来源，支持 `user` / `group` / `ref` |
-| `scope` | 是 | 触发范围：`at`（@提及）/ `all`（所有消息） |
-| `filter` | 是 | MessageFilter 消息过滤条件 |
+| 字段 | 必填 | 说明|
+|------|------|---|
+| `receive_scene` | 是 | 接收场景：`group`（群聊）/ `chat`（单聊）|
+| `receiver` | 是 | 触发来源，支持 `user` / `group` / `ref`。在单聊场景下，该字段指“可以和机器人单聊的用户”；在群聊场景下，该字段指“接收信息的群组”|
+| `scope` | 是 | 触发范围：`at`（@提及）/ `all`（所有消息）。该参数仅在群聊场景有效，单聊场景请勿指定该参数|
+| `filter` | 是 | MessageFilter 消息过滤条件|
 
 `MessageFilter`：
 
 | 字段 | 类型 | 说明 |
-|------|------|------|
-| `conjunction` | string | `and` 满足所有条件 / `or` 任一条件 |
-| `content_contains` | string[] | 关键词列表 |
-| `sender_contains` | ValueInfo[] | 筛选发送人（群聊+群组来源时生效） |
-| `is_new_message` | boolean | 仅新主题消息（群聊时有效） |
-| `is_message_contain_attachment` | boolean | 是否仅附件消息触发 |
+|------|------|----|
+| `conjunction` | string | `and` 满足所有条件 / `or` 任一条件|
+| `content_contains` | string[] | 关键词列表|
+| `sender_contains` | ValueInfo[] | 筛选发送人（仅群聊+群组来源时生效，单聊场景请勿指定该参数）|
+| `is_new_message` | boolean | 仅新话题消息（仅群聊时有效，单聊场景请勿指定该参数）|
+| `is_message_contain_attachment` | boolean | 是否仅附件消息触发|
 
 ## Action data 详细结构
 
@@ -338,6 +372,48 @@
 | `filter_info` | 否* | RecordFilterInfo（与 `ref_info` 互斥） |
 | `ref_info` | 否* | RefInfo（与 `filter_info` 互斥） |
 
+### HTTPClientAction
+
+```json
+{
+  "method": "POST",
+  "url": [{ "value_type": "text", "value": "https://api.example.com/webhook" }],
+  "queries": [
+    { "key": "source", "value": [{ "value_type": "text", "value": "workflow" }] }
+  ],
+  "headers": [
+    { "key": "Content-Type", "value": [{ "value_type": "text", "value": "application/json" }] }
+  ],
+  "body_type": "raw",
+  "raw_body": [
+    { "value_type": "text", "value": "{\"record_id\":\"" },
+    { "value_type": "ref", "value": "$.step_1.recordId" },
+    { "value_type": "text", "value": "\"}" }
+  ],
+  "response_type": "json",
+  "response_value": "{\"success\":true,\"message\":\"data fetched successfully\"}"
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|-----|------|
+| `method` | 否 | 请求方法：`GET` / `POST` / `PUT` / `PATCH` / `DELETE`，默认 `POST` |
+| `url` | 是 | ValueInfo[]，请求 URL，支持 `text` / `ref` 拼接 |
+| `queries` | 否 | KeyValue[]，查询参数 |
+| `headers` | 否 | KeyValue[]，请求头 |
+| `body_type` | 否 | 请求体类型：`none` / `raw` / `form-data` / `form-urlencoded`，默认 `raw` |
+| `raw_body` | 否 | ValueInfo[]，原始请求体，仅 `body_type=raw` 时使用 |
+| `form_body` | 否 | KeyValue[]，表单数据，仅 `body_type=form-data` 或 `body_type=form-urlencoded` 时使用 |
+| `response_type` | 否 | 响应类型：`none` / `text` / `json`，默认 `json` |
+| `response_value` | 否 | string，JSON 字符串形式的响应结果示例；仅当 `response_type=json` 时必填 |
+
+`KeyValue`：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `key` | string | 参数名 / 请求头名 |
+| `value` | ValueInfo[] | 参数值 / 请求头值，支持 `text` / `ref` |
+
 ### Delay
 
 ```json
@@ -352,12 +428,12 @@
 
 ```json
 {
-  "receiver": [{ "value_type": "user", "value": "ou_xxxx" }],
+  "receiver": [{ "value_type": "user", "value": {"id": "ou_xxxx"} }],
   "send_to_everyone": false,
   "title": [{ "value_type": "text", "value": "新订单通知" }],
   "content": [
     { "value_type": "text", "value": "客户 " },
-    { "value_type": "ref", "value": "$.trigger_1.fieldIdxxx" },
+    { "value_type": "ref", "value": "$.trigger_1.fldCustomerName" },
     { "value_type": "text", "value": " 创建了新订单" }
   ],
   "btn_list": [
@@ -399,6 +475,26 @@
 |------|------|------|
 | `prompt` | 是 | TextRefItem[] 提示词，支持 `text` / `ref` |
 
+### AIAnalysisAction
+
+```json
+{
+  "analysis_task": [
+    { "value_type": "text", "value": "分析昨日订单趋势、异常原因，并给出行动建议" }
+  ],
+  "analysis_table_names": ["订单表", "退款表"],
+  "identity_type": "maker",
+  "output_instruction": "先给结论，再列证据与行动建议"
+}
+```
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| `analysis_task` | 是 | TextRefItem[] 分析任务，支持 `text` / `ref` 混排；至少包含一项有效内容 |
+| `analysis_table_names` | 否 | string[] 分析数据范围；为空数组 `[]` 或省略时表示当前 Base 的全部数据表 |
+| `identity_type` | 是 | 数据访问身份：`maker`（固定流程身份） / `triggerPersonal`（流程触发者） |
+| `output_instruction` | 否 | 仅支持纯文本 |
+
 
 ## Branch data 详细结构
 
@@ -438,6 +534,8 @@
 
 ```json
 {
+  "mode": "exclusive",
+  "no_match_action": "classifyToOther",
   "child_branch_list": [
     {
       "name": "高优先级",
@@ -463,6 +561,10 @@
 
 | 字段 | 必填 | 说明 |
 |------|------|------|
+| `mode` | 否 | 分支模式。`exclusive`：排他模式，仅执行一个满足条件的子分支；`parallel`：并行模式，执行所有满足条件的子分支。默认 `exclusive` |
+| `no_match_action` | 否 | `mode=exclusive` 时使用，无匹配时的处理策略。`classifyToOther`：归类到其他分支；`fail`：报错终止。默认 `classifyToOther` |
+| `fail_mode` | 否 | `mode=parallel` 时使用，部分分支出错时策略。`partialSuccess`：部分成功即继续；`fail`：任一失败即终止。默认 `partialSuccess` |
+| `match_mode` | 否 | `mode=parallel` 时使用，所有分支不满足时策略。`noneMatchSkip`：跳过继续；`noneMatchFail`：报错终止。默认 `noneMatchSkip` |
 | `child_branch_list` | 是 | BranchItem[]，1-10 个条件分支 |
 
 `BranchItem`：
@@ -471,6 +573,45 @@
 |------|------|------|
 | `name` | string | 分支名称 |
 | `condition` | OrGroup | 分支条件 |
+
+### AIClassificationBranch
+
+`AIClassificationBranch` 用 AI 对 `content` 内容做分类，再通过 `children.links` 中的 `case` 边进入命中的后续步骤。`steps[].data` 使用公开 Agent Data 协议。
+
+```json
+{
+  "classes": [
+    {
+      "name": "Bug",
+      "desc": "功能报错、异常、不可用或结果错误"
+    },
+    {
+      "name": "功能建议",
+      "desc": "希望新增能力或优化现有功能"
+    }
+  ],
+  "content": [
+    { "value_type": "text", "value": "请根据反馈内容判断类型：" },
+    { "value_type": "ref", "value": "$.step_trigger.fldFeedback" }
+  ],
+  "classification_rule": "信息不足时判定为无法匹配。"
+}
+```
+
+| 字段 | 必填 | 说明                                                                   |
+|------|------|----------------------------------------------------------------------|
+| `classes` | 是 | 分类列表，至少 2 项。每项包含 `name` 和 `desc`                                     |
+| `classes[].name` | 是 | 分类名称，需与对应普通 `children.links[].desc` 保持一致                             |
+| `classes[].desc` | 是 | 分类描述，可为空字符串，但字段必须存在                                                  |
+| `content` | 是 | TextRefItem[]，用于分类的内容，支持 `text` / `ref`                              |
+| `classification_rule` | 否 | 全局分类规则纯文本                                                            |
+| `no_match_action` | 否 | 无匹配策略。`classifyToOther`：进入默认分支；`fail`：当前节点失败。省略时使用 `classifyToOther` |
+
+`children.links` 规则：
+- 每个分类命中后要跳到哪个后续步骤，必须写在 children.links 中。
+- 普通分类边使用 `kind: "case"` 和 `label: "branch_1"`、`branch_2` 等稳定标签；`desc` 与 `classes[i].name` 保持一致；`to` 指向该分类的入口 step。
+- `no_match_action: "classifyToOther"` 时必须额外提供一条默认分支边：`{ "kind": "case", "label": "default", "desc": "默认分支", "to": "step_other_action" }`。
+- `no_match_action: "fail"` 时不要提供默认分支边。
 
 
 ## System data 详细结构
@@ -483,7 +624,7 @@
 {
   "loop_mode": "continue",
   "max_loop_times": 100,
-  "data": [{ "value_type": "ref", "value": "$.find_record_stepIdxxx.records" }]
+  "data": [{ "value_type": "ref", "value": "$.find_record_stepIdxxx.fieldRecords" }]
 }
 ```
 
@@ -545,8 +686,8 @@ $.{stepId}.{pathId}.{childPathId}.{grandChildPathId}
 | pathId | 说明 | 引用示例 |
 |--------|------|----------|
 | `{fieldId}` | 字段id，从配置表的所有字段或者指定字段id生成，可下钻字段属性 | `$.{stepId}.{fieldId}` |
-| `{fieldId}.fieldId` | 字段id属性 | `$.{stepId}.{fieldId}.fieldId}` |
-| `{fieldId}.fieldName` | 字段名属性 | `$.{stepId}.{fieldId}.fieldName}` |
+| `{fieldId}.fieldId` | 字段id属性 | `$.{stepId}.{fieldId}.fieldId` |
+| `{fieldId}.fieldName` | 字段名属性 | `$.{stepId}.{fieldId}.fieldName` |
 | `startTime` | 触发时间戳 | `$.{stepId}.startTime` |
 | `recordId` | 记录 ID | `$.{stepId}.recordId` |
 | `recordLink` | 记录链接 | `$.{stepId}.recordLink` |
@@ -563,6 +704,34 @@ $.{stepId}.{pathId}.{childPathId}.{grandChildPathId}
 - 每个字段可下钻特定的字段属性（见「字段属性下钻」）
 
 **recordLink 的 children**：如果配置了数据表，则为该表所有视图的列表，每个视图 `{ pathId: viewId, pathName: viewName, pathType: 'string' }`。引用示例：`$.{stepId}.recordLink.{viewId}`。
+
+##### ButtonTrigger（按钮触发器）
+
+`ButtonTrigger` 的输出取决于 `button_type`：
+
+#### `button_type = buttonField`
+
+| pathId | 说明 | 引用示例 |
+|--------|------|----------|
+| `{fieldId}` | 字段id，从配置表的所有字段或者指定字段id生成，可下钻字段属性 | `$.{stepId}.{fieldId}` |
+| `{fieldId}.fieldId` | 字段id属性 | `$.{stepId}.{fieldId}.fieldId` |
+| `{fieldId}.fieldName` | 字段名属性 | `$.{stepId}.{fieldId}.fieldName` |
+| `recordId` | 记录 ID | `$.{stepId}.recordId` |
+| `recordLink` | 记录链接 | `$.{stepId}.recordLink` |
+| `recordCreatedUser` | 记录创建者 | `$.{stepId}.recordCreatedUser` |
+| `recordModifiedUser` | 最后修改者 | `$.{stepId}.recordModifiedUser` |
+| `recordModifiedTime` | 最后修改时间 | `$.{stepId}.recordModifiedTime` |
+| `time` | 触发时间 | `$.{stepId}.time` |
+| `user` | 触发人 | `$.{stepId}.user` |
+| `buttonName` | 触发的按钮名称 | `$.{stepId}.buttonName` |
+
+#### `button_type = buttonElement`
+
+| pathId | 说明 | 引用示例 |
+|--------|------|----------|
+| `time` | 触发时间 | `$.{stepId}.time` |
+| `user` | 触发人 | `$.{stepId}.user` |
+| `buttonName` | 触发的按钮名称 | `$.{stepId}.buttonName` |
 
 ##### TimerTrigger（定时触发器）
 
@@ -596,26 +765,26 @@ $.{stepId}.{pathId}.{childPathId}.{grandChildPathId}
 
 ##### FindRecordAction（查找记录）
 
-| pathId | 说明 | 引用示例 |
-|--------|------|----------|
-| `fieldRecords` | 所有找到的记录的引用（可用于 Loop 遍历） | 不支持引用 |
-| `firstfieldsRecord` | 第一条匹配记录 | `$.{stepId}.firstfieldsRecord` |
-| `firstfieldsRecord.{fieldId}` | 首条记录的字段值，可下钻字段属性 | `$.{stepId}.firstfieldsRecord.{fieldId}` |
-| `firstfieldsRecord.recordId` | 记录 ID 数组 | `$.{stepId}.firstfieldsRecord.recordId` |
-| `fields` | 查找到的所有记录某列值 | 不支持引用 |
-| `fields.{fieldId}` | 用户选择的字段 | `$.{stepId}.fields.{fieldId}` |
-| `fields.{fieldId}.fieldId` | 用户选择的字段id数组 | `$.{stepId}.fields.{fieldId}.fieldId` |
-| `fields.{fieldId}.fieldName` | 用户选择的字段名数组 | `$.{stepId}.fields.{fieldId}.fieldName` |
-| `fields.recordId` | 记录 ID 数组 | `$.{stepId}.fields.recordId` |
-| `recordNum` | 找到记录总数 | `$.{stepId}.recordNum` |
+| pathId | 说明 | 引用示例|
+|--------|------|-------|
+| `fieldRecords` | 所有找到的记录的引用（可用于 Loop 遍历） | `$.{stepId}.fieldRecords`|
+| `firstfieldsRecord` | 第一条匹配记录 | `$.{stepId}.firstfieldsRecord`|
+| `firstfieldsRecord.{fieldId}` | 首条记录的字段值，可下钻字段属性 | `$.{stepId}.firstfieldsRecord.{fieldId}`|
+| `firstfieldsRecord.recordId` | 记录 ID 数组 | `$.{stepId}.firstfieldsRecord.recordId`|
+| `fields` | 查找到的所有记录某列值 | 不支持引用|
+| `fields.{fieldId}` | 用户选择的字段 | `$.{stepId}.fields.{fieldId}`|
+| `fields.{fieldId}.fieldId` | 用户选择的字段id数组 | `$.{stepId}.fields.{fieldId}.fieldId`|
+| `fields.{fieldId}.fieldName` | 用户选择的字段名数组 | `$.{stepId}.fields.{fieldId}.fieldName`|
+| `fields.recordId` | 记录 ID 数组 | `$.{stepId}.fields.recordId`|
+| `recordNum` | 找到记录总数 | `$.{stepId}.recordNum`|
 
 ##### AddRecordAction（新增记录）
 
 | pathId | 说明 | 引用示例 |
 |--------|------|----------|
 | `{fieldId}` | 用户配置的字段值，可下钻字段属性 | `$.{stepId}.{fieldId}` |
-| `{fieldId}.fieldId` | 用户配置的字段id | `$.{stepId}.{fieldId}.fieldId}` |
-| `{fieldId}.fieldName` | 用户配置的字段名 | `$.{stepId}.{fieldId}.fieldName}` |
+| `{fieldId}.fieldId` | 用户配置的字段id | `$.{stepId}.{fieldId}.fieldId` |
+| `{fieldId}.fieldName` | 用户配置的字段名 | `$.{stepId}.{fieldId}.fieldName` |
 | `recordId` | 新增的记录 ID | `$.{stepId}.recordId` |
 | `recordLink` | 新增的记录 URL | `$.{stepId}.recordLink` |
 
@@ -624,15 +793,67 @@ $.{stepId}.{pathId}.{childPathId}.{grandChildPathId}
 | pathId | 说明 | 引用示例 |
 |--------|------|----------|
 | `{fieldId}` | 用户配置的字段值，可下钻字段属性 | `$.{stepId}.{fieldId}` |
-| `{fieldId}.fieldId` | 用户配置的字段id | `$.{stepId}.{fieldId}.fieldId}` |
-| `{fieldId}.fieldName` | 用户配置的字段名 | `$.{stepId}.{fieldId}.fieldName}` |
+| `{fieldId}.fieldId` | 用户配置的字段id | `$.{stepId}.{fieldId}.fieldId` |
+| `{fieldId}.fieldName` | 用户配置的字段名 | `$.{stepId}.{fieldId}.fieldName` |
 | `recordId` | 记录 ID 数组（因可能更新多条记录） | `$.{stepId}.recordId` |
+
+##### HTTPClientAction（HTTP 请求）
+
+HTTPClientAction 的输出取决于 `response_type`：
+
+| response_type | 是否可引用 | 输出说明 | 引用示例 |
+|--------------|-----------|----------|----------|
+| `none` | 否 | 无任何可引用输出 | 不支持引用 |
+| `text` | 是 | 整个响应文本作为节点整体输出 | `$.{stepId}` |
+| `json` | 是 | 响应体整体挂在 `body` 下，同时返回 `status_code`；仅可引用 `response_value` 中声明的字段 | `$.{stepId}.body`、`$.{stepId}.body.success`、`$.{stepId}.body.message`、`$.{stepId}.status_code` |
+
+**补充说明**：
+
+- 当 `response_type = none` 时，后续节点无法引用 HTTPClientAction 的任何输出
+- 当 `response_type = text` 时，`$.{stepId}` 表示整个响应文本
+- 当 `response_type = json` 时，`$.{stepId}.body` 表示整个 JSON body，`$.{stepId}.body.字段名` 表示 body 中某个字段
+- 仅当 `response_type = json` 时，`$.{stepId}.status_code` 表示请求该 HTTP URL 后返回的 HTTP 状态码
+- 仅当 `response_type = json` 时，`response_value` 必填
+- 当 `response_type = json` 时，后续节点只能引用 `response_value` 中声明过的字段
+
+**案例**：
+
+假设某个 `HTTPClientAction` 的配置如下：
+
+```json
+{
+  "id": "step_http_1",
+  "type": "HTTPClientAction",
+  "data": {
+    "response_type": "json",
+    "response_value": "{\"success\":true,\"message\":\"ok\"}"
+  }
+}
+```
+
+则后续节点仅可以引用：
+
+- `$.step_http_1.body`
+- `$.step_http_1.body.success`
+- `$.step_http_1.body.message`
+- `$.step_http_1.status_code`
+
+但**不能**引用未在 `response_value` 中声明的字段，例如：
+
+- `$.step_http_1.body.data`
+- `$.step_http_1.body.request_id`
 
 ##### GenerateAiTextAction（AI 生成文本）
 
 | pathId | 说明 | 引用示例 |
 |--------|------|----------|
 | （整体出参） | AI 生成的文本内容（不支持下钻，只能引用 `$.{stepId}`） | `$.{stepId}` |
+
+##### AIAnalysisAction（AI 分析）
+
+| pathId | 说明 | 引用示例 |
+|--------|------|----------|
+| `analysisResult` | AI 分析结果字符串 | `$.{stepId}.analysisResult` |
 
 ##### 无输出的操作节点
 
@@ -689,27 +910,27 @@ $.{stepId}.{pathId}.{childPathId}.{grandChildPathId}
 |----------|---------|-------------|--------------|------|
 | **所有字段（基础）** | 字段 ID | `fieldId` | `string` | 字段的唯一标识 |
 | | 字段名称 | `fieldName` | `string` | 字段的显示名称 |
-| **人员字段**（User / CreatedUser / ModifiedUser） | 姓名 | `name` | `string` | 用户姓名 |
-| **日期字段**（DateTime / CreatedTime / ModifiedTime） | 时间戳 | `timestamp` | `number` | 时间戳数值 |
-| **附件字段**（Attachment） | 文件名 | `fileName` | `string` | 附件文件名 |
+| **人员字段**（`user` / `created_by` / `updated_by`） | 姓名 | `name` | `string` | 用户姓名 |
+| **日期字段**（`datetime` / `created_at` / `updated_at`） | 时间戳 | `timestamp` | `number` | 时间戳数值 |
+| **附件字段**（`attachment`） | 文件名 | `fileName` | `string` | 附件文件名 |
 | | 文件类型 | `fileType` | `string` | MIME 类型 |
 | | 文件大小 | `size` | `number` | 文件字节数 |
 | | 文件 Token | `fileToken` | `string` | 附件 token |
-| **超链接字段**（URL） | 文本 | `text` | `string` | 链接文本部分 |
+| **超链接文本字段**（`text` 且 `style.type=url`） | 文本 | `text` | `string` | 链接文本部分 |
 | | 链接 | `link` | `string` | 链接 URL 部分 |
-| **自动编号字段**（AutoNumber） | 序号 | `sequence` | `number` | 编号的纯数字序号 |
-| **关联字段**（SingleLink / DuplexLink） | 字段下钻 | `{fieldId}` | - | 可下钻到关联表的字段 |
+| **自动编号字段**（`auto_number`） | 序号 | `sequence` | `number` | 编号的纯数字序号 |
+| **关联字段**（`link`） | 字段下钻 | `{fieldId}` | - | 可下钻到关联表的字段 |
 
-> 其他字段类型（如文本、数字、复选框、单选/多选、电话、地理位置、进度、公式、引用查找等）仅支持 `fieldId` 和 `fieldName` 两个基础属性。
+> 其他字段类型（如 `text`、`number`、`checkbox`、`select`、`location`、`formula`、`lookup` 等）仅支持 `fieldId` 和 `fieldName` 两个基础属性。
 
 下钻引用示例：
 
 ```
-$.{stepId}.{fieldId}              → 字段值本身
-$.{stepId}.{fieldId}.fieldId      → 字段 ID（string）
+$.{stepId}.{fieldId} → 字段值本身
+$.{stepId}.{fieldId}.fieldId → 字段 ID（string）
 $.{stepId}.{fieldId}.fieldName    → 字段名称（string）
-$.{stepId}.{fieldId}.name         → 人员姓名列表（array<string>，仅人员字段）
-$.{stepId}.{fieldId}.unionId      → 人员 unionId 列表（array<string>，仅人员字段）
+$.{stepId}.{fieldId}.name → 人员姓名列表（array<string>，仅人员字段）
+$.{stepId}.{fieldId}.unionId → 人员 unionId 列表（array<string>，仅人员字段）
 $.{stepId}.{fieldId}.timestamp    → 时间戳（array<number>，仅日期字段）
 $.{stepId}.{fieldId}.fileName     → 文件名列表（array<string>，仅附件字段）
 $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅附件字段）
@@ -725,12 +946,15 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
 | ChangeRecordTrigger | 触发器 | ✅ | 动态（表字段 + 记录属性） |
 | SetRecordTrigger | 触发器 | ✅ | 动态（表字段 + 记录属性） |
 | ReminderTrigger | 触发器 | ✅ | 动态（表字段 + 记录属性） |
+| ButtonTrigger | 触发器 | ✅ | 动态（表字段 + 记录属性；buttonElement 仅基础触发属性） |
 | TimerTrigger | 触发器 | ✅ | 静态（仅 scheduleTime） |
 | LarkMessageTrigger | 触发器 | ✅ | 静态（消息属性列表） |
 | FindRecordAction | 动作 | ✅ | 动态（用户选择的字段） |
 | AddRecordAction | 动作 | ✅ | 动态（用户配置的字段） |
 | SetRecordAction | 动作 | ✅ | 动态（用户配置的字段） |
+| HTTPClientAction | 动作 | ✅ | 动态（取决于用户配置的 HTTP 响应输出） |
 | GenerateAiTextAction | 动作 | ✅ | 静态（单 string） |
+| AIAnalysisAction | 动作 | ✅ | 静态（`analysisResult`） |
 | Delay | 动作 | ❌ | 无输出 |
 | LarkMessageAction | 动作 | ❌ | 无输出 |
 | IfElseBranch | 分支 | ❌ | 无输出 |
@@ -801,7 +1025,7 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
 }
 ```
 
-### Select / MultiSelect 字段多值匹配
+### `select` 字段多值匹配
 
 | 操作 | operator | 正确写法 |
 |------|---------|---------|
@@ -830,7 +1054,6 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
       "id": "step_1",
       "type": "AddRecordTrigger",
       "title": "当「订单表」新增记录时触发",
-      "children": { "links": [] },
       "next": "step_2",
       "data": {
         "table_name": "订单表",
@@ -866,7 +1089,6 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
       "id": "step_3",
       "type": "LarkMessageAction",
       "title": "通知主管审批大额订单",
-      "children": { "links": [] },
       "next": null,
       "data": {
         "receiver": [{ "value_type": "ref", "value": "$.step_1.fieldxxx" }],
@@ -884,7 +1106,6 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
       "id": "step_4",
       "type": "SetRecordAction",
       "title": "自动标记小额订单为已通过",
-      "children": { "links": [] },
       "next": null,
       "data": {
         "table_name": "订单表",
@@ -898,7 +1119,6 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
       "id": "step_5",
       "type": "GenerateAiTextAction",
       "title": "AI 生成订单处理日报",
-      "children": { "links": [] },
       "next": null,
       "data": {
         "prompt": [
@@ -915,6 +1135,5 @@ $.{stepId}.{fieldId}.fileToken    → 文件 Token 列表（array<string>，仅�
 
 ## 参考
 
-- [lark-base-workflow-create](lark-base-workflow-create.md) — 创建工作流命令
-- [lark-base-workflow-update](lark-base-workflow-update.md) — 更新工作流命令
-- [lark-base-workflow-list](lark-base-workflow-list.md) — 列出工作流命令
+- [Workflow](lark-base-workflow.md) — 完整示例和构造技巧
+- 创建/更新时外层只承载 workflow 元信息，核心校验对象是 `steps`；列表只用于拿 workflow ID 和启停状态

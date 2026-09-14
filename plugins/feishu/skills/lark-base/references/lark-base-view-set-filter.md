@@ -2,91 +2,64 @@
 
 > **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
 
-更新筛选配置。
+更新视图筛选配置。
 
-## 推荐命令
+## 1. filter 结构
+
+`--json` 就是一个 filter 条件对象，结构见公共协议 SSOT [lark-base-filter-condition.md](lark-base-filter-condition.md)，即 `{logic?, conditions?}`。此处 `conditions` 中的 `field` 引用**数据表字段名或字段 id**。
+
+- 支持 `filter` 的视图类型：`grid`、`kanban`、`gallery`、`calendar`、`gantt`。
+
+## 2. 推荐命令
 
 ```bash
 lark-cli base +view-set-filter \
-  --base-token app_xxx \
-  --table-id tbl_xxx \
-  --view-id viw_xxx \
-  --json '{"logic":"and","conditions":[["fld_status","intersects",["Doing"]],["fld_owner","intersects",[{"id":"ou_xxx"}]],["fld_end","empty"]]}'
+  --base-token <base_token> \
+  --table-id <table_id> \
+  --view-id <view_id> \
+  --json '{"logic":"and","conditions":[["状态","intersects",["Doing"]],["负责人","intersects",[{"id":"ou_xxx"}]],["截止时间","empty"]]}'
 ```
 
-## JSON 结构
+## 3. JSON 写法
 
 ```json
 {
   "logic": "and",
   "conditions": [
-    ["fld_status", "intersects", ["Doing"]],
-    ["fld_owner", "intersects", [{ "id": "ou_xxx" }]],
-    ["fld_end", "empty"]
+    ["状态", "intersects", ["Doing"]],
+    ["负责人", "intersects", [{ "id": "ou_xxx" }]],
+    ["截止时间", "empty"]
   ]
 }
 ```
 
-## 参数
-
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--base-token <token>` | 是 | Base Token |
-| `--table-id <id_or_name>` | 是 | 表 ID 或表名 |
-| `--view-id <id_or_name>` | 是 | 视图 ID 或视图名 |
-| `--json <body>` | 是 | JSON 对象 |
-
-## API 入参详情
-
-**HTTP 方法和路径：**
-
-```
-PUT /open-apis/base/v3/bases/:base_token/tables/:table_id/views/:view_id/filter
-```
-
-## 返回重点
-
-- 返回更新后的筛选配置。
-
-## 结构规则
-
-- `logic`：可选，`and` / `or`，默认 `and`
-- `conditions`：数组，可为空；每项必须是 `[field, operator, value?]`
-- `field`：字段 id 或字段名，长度 `1..100`
-- `operator`：`== != > >= < <= intersects disjoint empty non_empty`
-- `value`：按字段类型填写；`empty` / `non_empty` 可省略 `value`
-
-### 典型 `value` 形状
-
-- `text` / `location` / `formula`：字符串
-- `number` / `auto_number`：数字
-- `select`：`["Todo"]`
-- `user` / `created_by` / `updated_by`：`[{ "id": "ou_xxx" }]`
-- `link`：`[{ "id": "rec_xxx" }]`
-- `checkbox`：`true` / `false`
-- `datetime` / `created_at` / `updated_at`：`"ExactDate(YYYY-MM-DD)"`、`"Today"`、`"Tomorrow"`、`"Yesterday"`
-
-
-## JSON Schema（原文）
+清空写法：
 
 ```json
-{"type":"object","properties":{"logic":{"type":"string","enum":["and","or"],"default":"and","description":"Filter Condition Logic"},"conditions":{"type":"array","items":{"type":"array","minItems":3,"maxItems":3,"items":[{"type":"string","minLength":1,"maxLength":100,"description":"Field id or name"},{"type":"string","enum":["==","!=",">",">=","<","<=","intersects","disjoint","empty","non_empty"],"description":"Condition operator"},{"anyOf":[{"not":{}},{"anyOf":[{"anyOf":[{"type":"string","description":"text & formula & location field support string as filter value"},{"type":"number","description":"number & auto_number(the underfly incremental_number) field support number as filter value"},{"type":"array","items":{"type":"string","description":"option name"},"description":"select field support one option: [\"option1\"] or multiple options: `[\"option1\", \"option2\"]` as filter value."},{"type":"array","items":{"type":"object","properties":{"id":{"type":"string","description":"record id"}},"required":["id"],"additionalProperties":false},"description":"link field support record id list as filter value"},{"type":"string","description":"\ndatetime & create_at & updated_at field support relative and absolute filter value.\nabsolute:\n- \"ExactDate(yyyy-MM-dd)\"\nrelative:\n- Today\n- Tomorrow\n- Yesterday\n"},{"type":"array","items":{"type":"object","properties":{"id":{"type":"string","description":"user id"}},"required":["id"],"additionalProperties":false},"description":"user field support user id list as filter value"},{"type":"boolean","description":"checkbox field support boolean as filter value"}]},{"type":"null"}]}]}],"description":"one condition expression. shape: [field_id, filter_operator, value]. when operator is \"empty\" or \"non_empty\", the value is not required."},"default":[]}},"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}
-
+{
+  "conditions": []
+}
 ```
 
-## 工作流
+完整的 operator 列表与各字段类型的 value 写法（`text` / `number` / `select` / `user` / `datetime` / `formula` / `lookup` 等），见 [lark-base-filter-condition.md](lark-base-filter-condition.md)。
 
+## 4. 使用建议
 
-1. 建议先用 `+view-get-filter` 拉现状，再做最小化修改。
+- 先读取当前筛选配置，理解现有 `logic` 和 `conditions` 的组合关系；只替换用户要求变更的条件，未提到的条件默认保留。
+- 优先传字段 id，不要依赖字段名。
+- 拿不准字段 type 或真实取值时，先用 `+field-list` / `+record-list` 确认，再按对应字段类型的 value 写法构造条件；别按字段名猜 type、凭印象猜枚举取值。
+- 需要清空全部筛选时，直接传 `{"conditions":[]}`。
 
-## 坑点
+## 5. 易错点
 
-- ⚠️ 这是写入操作，执行前必须确认。
-- ⚠️ 条件必须用 tuple，不要再写旧的 `{"field_name":...,"operator":...}` 对象风格。
-- ⚠️ `empty` / `non_empty` 不要硬塞 value；`select` / `user` / `link` 也不要直接写单值。
-- ⚠️ 日期值要保留 `ExactDate(...)` 外壳，不要直接写裸日期字符串。
+- 本 tuple DSL 由 `+view-set-filter` 与 `+record-list` / `+record-search` 的 `--filter-json` 共用；不要写成 `+data-query` 的对象风格 `{"field_name":...,"operator":...}`（会报校验失败）。
+- 标量类字段（`text` / `number` / `datetime` 等）的 value 用标量、别包成数组（各类型详见 value 写法一节）。
+- `user` / `group_chat` / `link` 不要写成单个标量。
+- `empty` / `non_empty` 不要硬塞无意义的 value。
+- 日期条件稳定写法用 `ExactDate(...)` 或 `Today` / `Yesterday` / `Tomorrow`。
+- `formula` / `lookup` 的 value 形状不固定；拿不准时先读当前 filter 或字段定义，或根据错误提示修正类型。
 
-## 参考
+## 6. 参考
 
-- [lark-base-view.md](lark-base-view.md) — view 索引页
-- [lark-base-view-get-filter.md](lark-base-view-get-filter.md) — 读取筛选
+- [lark-base-filter-condition.md](lark-base-filter-condition.md)：filter/visible_rule 条件结构公共协议 SSOT
+- [Lookup Field](lark-base-field-lookup.md)
