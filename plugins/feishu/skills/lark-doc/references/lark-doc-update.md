@@ -1,261 +1,112 @@
-
 # docs +update（更新飞书云文档）
 
-> **前置条件：** 先阅读 [`../lark-shared/SKILL.md`](../../lark-shared/SKILL.md) 了解认证、全局参数和安全规则。
+使用文本或 block 指令精确更新飞书云文档。默认使用 XML；仅在用户明确要求或必须保真 Markdown 时使用 Markdown。
 
-更新飞书云文档内容，支持 7 种更新模式。优先使用局部更新（replace_range/append/insert_before/insert_after），慎用 overwrite（会清空文档重写，可能丢失图片、评论等）。
+写入前必须按 `--doc-format` 读取对应格式参考：`xml` 读取 [`lark-doc-xml.md`](lark-doc-xml.md)，`markdown` 读取 [`lark-doc-md.md`](lark-doc-md.md)；
 
-## 命令
+## 常用示例
 
 ```bash
-# 追加内容
-lark-cli docs +update --doc "<doc_id_or_url>" --mode append --markdown "## 新章节\n\n追加内容"
+# 先定位内容并获取最新 block ID
+lark-cli docs +fetch --doc "文档URL或token" --scope keyword --keyword "key1|key2" --detail with-ids
 
-# 定位替换（内容定位）
-lark-cli docs +update --doc "<doc_id>" --mode replace_range --selection-with-ellipsis "旧标题...旧结尾" --markdown "## 新内容"
+# 替换文本；--content "" 可删除文本
+lark-cli docs +update --doc "xx" --command str_replace --pattern "旧内容" --content "新内容"
 
-# 定位替换（标题定位）
-lark-cli docs +update --doc "<doc_id>" --mode replace_range --selection-by-title "## 功能说明" --markdown "## 功能说明\n\n新内容"
+# 替换单个 block，或同父连续范围内的 block
+lark-cli docs +update --doc "xx" --command block_replace --block-id blkTarget --content '<p>新段落</p>'
+lark-cli docs +update --doc "xx" --command block_replace --start-block-id blkFirst --end-block-id blkLast --content '<p></p>'
 
-# 全文替换
-lark-cli docs +update --doc "<doc_id>" --mode replace_all --selection-with-ellipsis "张三" --markdown "李四"
+lark-cli docs +update --doc "xx" --command block_insert_after --block-id blkAnchor --content '<h2>新章节</h2><p>章节内容</p>'
 
-# 前插入
-lark-cli docs +update --doc "<doc_id>" --mode insert_before --selection-with-ellipsis "## 危险操作" --markdown "> 警告：以下需谨慎！"
-
-# 后插入
-lark-cli docs +update --doc "<doc_id>" --mode insert_after --selection-with-ellipsis "代码示例" --markdown "**输出示例**：result = 42"
-
-# 删除内容
-lark-cli docs +update --doc "<doc_id>" --mode delete_range --selection-by-title "## 废弃章节"
-
-# 覆盖（慎用）
-lark-cli docs +update --doc "<doc_id>" --mode overwrite --markdown "# 全新内容"
-
-# 同时更新标题
-lark-cli docs +update --doc "<doc_id>" --mode append --markdown "## 更新日志" --new-title "文档 v2.0"
-
-# 在指定内容后新增两个空白画板
-lark-cli docs +update --doc "<doc_id>" --mode insert_after --selection-with-ellipsis "有序列表" --markdown $'<whiteboard type="blank"></whiteboard>\n<whiteboard type="blank"></whiteboard>'
+# 删除单个 block 或范围内的 block
+lark-cli docs +update --doc "xx" --command block_delete --block-id blkA
+lark-cli docs +update --doc "xx" --command block_delete --start-block-id blkFirst --end-block-id blkLast
 ```
+
+## 推荐流程
+
+1. **Observe（读取现状）**：先 `docs +fetch` 读取当前文档状态，并按意图选择最小范围。
+   - 改某一节或大文档：先 `--scope outline --max-depth 2` 找章节，再 `--scope section --start-block-id <标题id> --detail with-ids`
+   - 精确跨节区间：用 `--scope range --start-block-id xxx --end-block-id yyy`
+   - 只有模糊关键词：用 `--scope keyword --keyword "key1|key2" --context-before 1 --context-after 1 --detail with-ids`
+   - 明确整篇重构才读 `--detail with-ids` 全文；只读摘要或确认事实时用更轻的 fetch
+2. **Diagnose（诊断问题）**：判断用户目标、当前结构、语气、重复、断流、事实口径和需要保留的资源；识别哪些 block 必须原样保留。
+3. **Patch Plan（制定局部计划）**：把修改拆成最小安全操作：简单行内文本替换用 `str_replace`，但它不支持资源替换；单个 block 用一个 `--block-id`，同一直接父节点下的连续 block 用 `--start-block-id`/`--end-block-id`。连续范围适用于 `block_replace` 和 `block_delete`。整段/整块重写用 `block_replace`；增补章节用 `block_insert_after`；删冗余用 `block_delete`；调整顺序用 `block_move_after`。
+4. **Patch（精确修改）**：按 block / section 执行局部命令。替换内容必须符合目标父容器的结构；例如替换列表项范围时使用 `<li>...</li>`。保护 `<cite>`、`<img>`、`<source>`、`<whiteboard>`、`<sheet>`、`<bitable>`、`<synced_reference>` 等 token 化内容，不要改成纯文本或占位符。同一 block 的多处修改合并成一次 `block_replace`。
+5. **Verify（fetch 验证）**：每轮写操作后按影响范围重新 fetch，检查用户要求、结构、语气、事实、资源块和 block ID 是否符合预期；不满足就基于最新 fetch 结果继续 Diagnose / Patch，不要沿用上一轮 block ID。
+
+除非用户明确要求完全重建，或原文已无保留价值，否则不要使用 `overwrite`；它可能丢失评论和暂不支持的资源。
+
+## 生成 block 直达链接
+
+用户需要某个 block 的直达链接时，只定位 block，不执行文档写操作：
+
+1. 使用局部 `docs +fetch --detail with-ids` 获取目标 `block_id`。
+2. 返回 `文档基础 URL#block_id`；没有 `block_id` 时不得猜测。
 
 ## 参数
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `--doc` | 是 | 文档 URL 或 token |
-| `--mode` | 是 | 更新模式（见下方 7 种模式说明） |
-| `--markdown` | 视模式 | 新内容（Lark-flavored Markdown）。delete_range 模式不需要，其他模式必填。若要新增空白画板，直接传 `<whiteboard type="blank"></whiteboard>`；需要多个画板时，在同一个 markdown 里重复多个标签 |
-| `--selection-with-ellipsis` | 视模式 | 内容定位（如 `"开头...结尾"`）。与 `--selection-by-title` 互斥 |
-| `--selection-by-title` | 视模式 | 标题定位（如 `"## 章节名"`）。与 `--selection-with-ellipsis` 互斥 |
-| `--new-title` | 否 | 同时更新文档标题 |
+|参数|必填|说明|
+|-|-|-|
+|`--doc`|是|文档 URL 或 token|
+|`--command`|是|更新指令，见下表|
+|`--doc-format`|否|`xml`（默认）或 `markdown`|
+|`--content`|视指令|写入内容；`str_replace` 传空字符串可删除文本|
+|`--pattern`|视指令|`str_replace` 的简单行内匹配文本；不要用于多行、整段或多个 block|
+|`--block-id`|视指令|目标 block ID；`-1` 表示文档末尾，`0` 表示文档开头（仅适用于支持这些锚点的指令）|
+|`--start-block-id` / `--end-block-id`|视指令|`block_replace` / `block_delete` 的同父连续闭区间，必须成对使用，且不能与 `--block-id` 混用；`--start-block-id` 用 `0` 表示从文档开头开始，`--end-block-id` 用 `-1` 表示到文档末尾结束|
+|`--src-block-ids`|视指令|要复制或移动的源 block ID，多个 ID 用逗号分隔|
+|`--reference-map`|否|保留或回放既有 `reference_map`，需与 `--content` 配合；支持 JSON、任务目录内的相对 `@file` 或 stdin `-`|
+|`--revision-id`|否|基准版本号，默认 `-1`（最新版本）|
 
-# 定位方式
+## 指令速查
 
-定位模式（replace_range/replace_all/insert_before/insert_after/delete_range）支持两种定位方式，二选一：
+|指令|用途与限制|必需参数|
+|-|-|-|
+|`str_replace`|全文查找替换；支持富文本内的文本替换，但不支持资源替换；涉及多个 block 时建议用 `block_replace`；空 `--content` 表示删除|`--pattern`、`--content`|
+|`block_insert_after`|在指定 block 后插入内容；逐章填充时指定对应标题的 block ID|`--block-id`、`--content`|
+|`block_copy_insert_after`|按 ID 顺序复制源 block，源 block 不变；基础标签均支持，资源块仅支持 `img`、`source`、`whiteboard`、`sheet`、`chat_card`、`sub-page-list`，不支持 `task`、`bitable`、`base_ref`、`synced_reference`、`synced_source`、`okr`|`--block-id`、`--src-block-ids`|
+|`block_replace`|替换单个 block（`--block-id`）或同父连续闭区间（`--start-block-id`/`--end-block-id`）；不支持跨容器或反向区间|`--content`，以及 `--block-id` 或 `--start-block-id`+`--end-block-id`|
+|`block_delete`|删除单个 block（`--block-id`）或同父连续闭区间（`--start-block-id`/`--end-block-id`）；不支持跨容器或反向区间|`--block-id` 或 `--start-block-id`+`--end-block-id`|
+|`block_move_after`|移动已有 block，支持所有块类型；|`--block-id`、`--src-block-ids`|
+|`append`|仅在文末追加，等价于 `block_insert_after --block-id -1`|`--content`|
+|`overwrite`|清空后重写全文，丢失图片、评论等内容，非必要不使用|`--content`|
 
-## selection-with-ellipsis - 内容定位
+## 通用安全规则
 
-支持两种格式：
+- 每次写操作后都按 block ID 已变化处理。新插入或复制的内容一定使用新 ID；替换、删除和覆盖会使旧 ID 失效；移动会改变章节与 range 语义。
+- 同一 block 有多处修改时，应合并为一次 `block_replace`，避免连续使用旧 ID。
 
-1. **范围匹配**：`开头内容...结尾内容`
-   - 匹配从开头到结尾的所有内容（包含中间内容）
-   - 建议 10-20 字符确保唯一性
-
-2. **精确匹配**：`完整内容`（不含 `...`）
-   - 匹配完整的文本内容
-   - 适合替换短文本、关键词等
-
-**转义说明**：如果要匹配的内容本身包含 `...`，使用 `\.\.\.` 表示字面量的三个点。
-
-示例：
-- `你好...世界` → 匹配从"你好"到"世界"之间的任意内容
-- `你好\.\.\.世界` → 匹配字面量 "你好...世界"
-
-**建议**：如果文档中有多个 `...`，建议使用更长的上下文来精确定位，避免歧义。
-
-## selection-by-title - 标题定位
-
-格式：`## 章节标题`（可带或不带 # 前缀）
-
-自动定位整个章节（从该标题到下一个同级或更高级标题之前）。
-
-**示例**：
-- `## 功能说明` → 定位二级标题"功能说明"及其下所有内容
-- `功能说明` → 定位任意级别的"功能说明"标题及其内容
-
-# 可选参数
-
-## new-title
-
-更新文档标题。如果提供此参数，将在更新文档内容后同步更新文档标题。
-
-**特性**：
-- 仅支持纯文本，不支持富文本格式
-- 长度限制：1-800 字符
-- 可以与任何 mode 配合使用
-- 标题更新在内容更新之后执行
-
-# 返回值
-
-## 成功
+## 返回值
 
 ```json
 {
-  "success": true,
-  "doc_id": "文档ID",
-  "mode": "使用的模式",
-  "board_tokens": ["可选：新建画板 token 列表"],
-  "message": "文档更新成功（xxx模式）",
-  "warnings": ["可选警告列表"],
-  "log_id": "请求日志ID"
+  "ok": true,
+  "identity": "user",
+  "data": {
+    "document": {
+      "revision_id": 2,
+      "new_blocks": [
+        { "block_id": "blkcnXXXX", "block_type": "whiteboard", "block_token": "boardXXXX" }
+      ]
+    },
+    "result": "success",
+    "updated_blocks_count": 1,
+    "warnings": [],
+    "tips": ""
+  }
 }
 ```
 
-如果本次 `docs +update` 创建了画板，响应会额外返回 `board_tokens`。在 CLI 的成功 JSON 输出里，后续编辑画板应读取 `data.board_tokens`。
+|字段|说明|
+|-|-|
+|`result`|`success` \| `partial_success` \| `failed`|
+|`updated_blocks_count`|实际更新的 block 数量|
+|`warnings`|服务端返回的警告列表；即使 `result=success` 也要检查是否存在降级或未完全处理的内容|
+|`tips`|服务端返回的后续处理建议；为空表示没有额外建议，非空本身不表示更新失败|
+|`document.new_blocks`|新增 block；`block_id` 用于后续编辑，资源块的 `block_token` 可交给对应 skill 继续处理|
 
-## 异步模式（大文档超时）
+## 需要查文档
 
-```json
-{
-  "task_id": "async_task_xxxx",
-  "message": "文档更新已提交异步处理，请使用 task_id 查询状态",
-  "log_id": "请求日志ID"
-}
-```
-
-## 错误
-
-```json
-{
-  "error": "[错误码] 错误消息\n💡 Suggestion: 修复建议\n📍 Context: 上下文信息",
-  "log_id": "请求日志ID"
-}
-```
-
----
-
-# 使用示例
-
-## append - 追加到末尾
-
-```bash
-lark-cli docs +update --doc "文档ID或URL" --mode append --markdown "## 新章节\n\n追加的内容..."
-```
-
-## replace_range - 定位替换
-
-使用 `--selection-with-ellipsis`：
-```bash
-lark-cli docs +update --doc "文档ID" --mode replace_range --selection-with-ellipsis "## 旧标题...旧结尾。" --markdown "## 新标题\n\n新的内容..."
-```
-
-使用 `--selection-by-title`（替换整个章节）：
-```bash
-lark-cli docs +update --doc "文档ID" --mode replace_range --selection-by-title "## 功能说明" --markdown "## 功能说明\n\n更新后的内容..."
-```
-
-## replace_all - 全文替换
-
-```bash
-lark-cli docs +update --doc "文档ID" --mode replace_all --selection-with-ellipsis "张三" --markdown "李四"
-```
-
-返回值包含 `replace_count` 字段，表示替换的次数。
-
-**注意**：
-- 与 `replace_range` 不同，`replace_all` 允许多个匹配
-- 如果没有找到匹配内容，会返回错误
-- `--markdown` 可以为空字符串，表示删除所有匹配内容
-
-## delete_range - 删除内容
-
-```bash
-lark-cli docs +update --doc "文档ID" --mode delete_range --selection-by-title "## 废弃章节"
-```
-
-注意：delete_range 模式不需要 `--markdown` 参数。
-
-## overwrite - 完全覆盖
-
-⚠️ 会清空文档后重写，可能丢失图片、评论等，仅在需要完全重建文档时使用。
-
-```bash
-lark-cli docs +update --doc "文档ID" --mode overwrite --markdown "# 新文档\n\n全新的内容..."
-```
-
-## 创建空白画板
-
-当用户要“新增空白画板”时，不要用 Mermaid 占位图；直接按 whiteboard 标签传 `--markdown`。
-
-自然语言请求示例：
-- “给我在这个文档末尾新增一个空白画板”
-
-```bash
-# 追加一个空白画板
-lark-cli docs +update --doc "文档ID" --mode append --markdown '<whiteboard type="blank"></whiteboard>'
-
-# 在指定内容后新增两个空白画板
-lark-cli docs +update --doc "文档ID" --mode insert_after --selection-with-ellipsis "有序列表" --markdown $'<whiteboard type="blank"></whiteboard>\n<whiteboard type="blank"></whiteboard>'
-```
-
-成功后，响应里的 `data.board_tokens` 就是新建画板的 token 列表；如果后续要继续编辑这些画板，直接使用这些 token。
-
----
-
-# 最佳实践
-
-## 重要：画板编辑
-
-> **⚠️ docs +update 不能编辑已有画板内容，但可以创建新的空白画板**
-
-画板编辑：详见 [SKILL.md](../SKILL.md#重要说明画板编辑)
-
-## 小粒度精确替换
-
-修改文档内容时，**定位范围越小越安全**。尤其是表格、分栏等嵌套块，应精确定位到需要修改的文本，避免影响其他内容。
-
-## 保护不可重建的内容
-
-图片、画板、电子表格、多维表格、任务等内容以 token 形式存储，**无法读出后原样写入**。
-
-**保护策略**：
-- 替换时避开包含这些内容的区域
-- 精确定位到纯文本部分进行修改
-
-## 分步更新优于整体覆盖
-
-修改多处内容时：
-- ✅ 多次小范围替换，逐步修改
-- ⚠️ 谨慎使用 `overwrite` 重写整个文档，除非你认为风险完全可控
-
-**原因**：局部更新保留原有媒体、评论、协作历史，更安全可靠。
-
-## insert 模式扩大定位范围时注意插入位置
-
-使用 `insert_before` 或 `insert_after` 时，如果目标内容重复出现，需要扩大 `--selection-with-ellipsis` 范围来唯一定位。
-
-**关键**：插入位置基于匹配范围的**边界**：
-- `insert_after` → 插入在匹配范围的**结尾**之后
-- `insert_before` → 插入在匹配范围的**开头**之前
-
-## 修复画板语法错误
-
-当 `docs +create` 或 `docs +update` 返回画板写入失败的 warning 时：
-1. warning 中包含 whiteboard 标签（如 `<whiteboard token="xxx"/>`）
-2. 分析错误信息，修正 Mermaid/PlantUML 语法
-3. 用 `--mode replace_range` 替换：`--selection-with-ellipsis` 使用 warning 中的 whiteboard 标签，`--markdown` 提供修正后的代码块
-4. 重新提交验证
-
----
-
-# 注意事项
-
-- **Markdown 语法**：支持飞书扩展语法，详见 [lark-doc-create](lark-doc-create.md) 工具文档
-
-## 参考
-
-- [lark-doc-fetch](lark-doc-fetch.md) — 获取文档
-- [lark-doc-create](lark-doc-create.md) — 创建文档（含完整 Markdown 格式参考）
-- [lark-doc-media-insert](lark-doc-media-insert.md) — 插入图片/文件到文档
-- [lark-shared](../../lark-shared/SKILL.md) — 认证和全局参数
+可查看 [`+fetch`](lark-doc-fetch.md)。
